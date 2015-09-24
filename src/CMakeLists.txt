@@ -139,6 +139,7 @@ include_directories(${CH_INCLUDES})
 # Add directories to build various optional modules.  Each module is supposed
 # to provide an option for enabling that particular module.
 add_subdirectory(chrono_mkl)
+add_subdirectory(chrono_mumps)
 add_subdirectory(chrono_matlab)
 add_subdirectory(chrono_cascade)
 add_subdirectory(chrono_irrlicht)
