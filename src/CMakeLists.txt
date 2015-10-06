@@ -216,6 +216,12 @@ else()
   set(CHRONO_MKL "#undef CHRONO_MKL")
 endif()
 
+if(ENABLE_MODULE_MKL)
+  set(CHRONO_MKL "#define CHRONO_MUMPS")
+else()
+  set(CHRONO_MKL "#undef CHRONO_MUMPS")
+endif()
+
 if(ENABLE_MODULE_PARALLEL)
   set(CHRONO_PARALLEL "#define CHRONO_PARALLEL")
 else()
