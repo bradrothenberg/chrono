@@ -26,11 +26,11 @@ MESSAGE(STATUS "Arithmetic set to '${MUMPS_ARITHMETIC}'. Added '${ARITH_PREFIX}'
 SET(MUMPS_ROOT_DIRECTORY "D:/SourceTreeWS/MumpsWin/Mumps5.0.0" CACHE PATH "Mumps root directory" FORCE)
 SET(MUMPS_USE_MPI FALSE CACHE BOOL "Select if MPI is needed" FORCE)
 SET(MUMPS_USE_DEFAULT_ORDERINGS TRUE CACHE BOOL "Select if default ordering library should be used" FORCE)
-SET(MUMPS_USE_MKL_BLAS TRUE CACHE BOOL "Select if default MKL BLAS should be used" FORCE)
+SET(USE_MKL_BLAS TRUE CACHE BOOL "Select if BLAS libraries should be used" FORCE)
 
 MARK_AS_ADVANCED(MUMPS_USE_MPI
 				MUMPS_USE_DEFAULT_ORDERINGS
-				MUMPS_USE_MKL_BLAS)
+				USE_MKL_BLAS)
 
 SET(MUMPS_INCLUDE
 	"${MUMPS_ROOT_DIRECTORY}/include")
@@ -54,7 +54,7 @@ ELSE (MUMPS_USE_DEFAULT_ORDERINGS)
 	# SET(MUMPS_ORDERINGS_LIBRARIES "" CACHE PATH "Path to ordering library" FORCE)
 ENDIF (MUMPS_USE_DEFAULT_ORDERINGS)
 
-IF (MUMPS_USE_MKL_BLAS)
+IF (USE_MKL_BLAS)
 
 	find_package(mkl)
 	
@@ -70,12 +70,12 @@ IF (MUMPS_USE_MKL_BLAS)
 		"C:/Program Files (x86)/Intel/Composer XE 2015/compiler/include"
 		)
 		
-ELSE (MUMPS_USE_MKL_BLAS)
+ELSE (USE_MKL_BLAS)
 	MESSAGE("Non-default BLAS library is not implemented yet.")
 	# SET(BLAS_ROOT "" CACHE PATH "Path to BLAS directory" FORCE)
 	# SET(BLAS_LIBRARIES "${BLAS_ROOT}/lib/lib.lib")
 	# SET(BLAS_INCLUDE "${BLAS_ROOT}/include")
-ENDIF (MUMPS_USE_MKL_BLAS)
+ENDIF (USE_MKL_BLAS)
 
 ################à
 SET (CH_MUMPS_LIBRARIES
