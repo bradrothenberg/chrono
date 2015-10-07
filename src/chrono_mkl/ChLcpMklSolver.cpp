@@ -79,7 +79,7 @@ namespace chrono
 		
 		// the sparsity of rhs must be updated at every cycle (am I wrong?)
 		if (use_rhs_sparsity && !use_perm)
-			mkl_engine.LeverageSparseRhs(true);
+			mkl_engine.UsePartialSolution(2);
 
 		
 
