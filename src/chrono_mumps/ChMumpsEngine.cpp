@@ -19,7 +19,7 @@ namespace chrono
 	
 	void ChMumpsEngine::SetProblem(ChAssembledMatrix& Z, ChMatrix<>& rhs)	
 	{
-		Z.Trim();
+		//Z.Trim();
 		n = Z.GetRows();
 		nz = Z.GetArraysLength();	
 	
