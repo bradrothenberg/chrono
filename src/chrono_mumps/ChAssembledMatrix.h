@@ -12,7 +12,6 @@ namespace chrono{
 
 	private:
 		int array_size;
-		int array_memory_occupancy;
 		int memory_augmentation;
 
 		int mat_rows;

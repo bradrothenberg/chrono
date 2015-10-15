@@ -6,7 +6,6 @@ namespace chrono
 
 	ChAssembledMatrix::ChAssembledMatrix(int mat_rows, int mat_cols, int nonzeros):
 		array_size(0),
-		array_memory_occupancy(0),
 		memory_augmentation(4),
 	    mat_rows(mat_rows),
 		mat_cols(mat_cols),
@@ -28,14 +27,9 @@ namespace chrono
 		if (nonzeros == 0)
 			return true;
 
-		if (nonzeros>array_memory_occupancy)
-		{
-			nonzeros = std::max(array_memory_occupancy + memory_augmentation, nonzeros);
-			values.resize(nonzeros);
-			rowIndex.resize(nonzeros);
-			colIndex.resize(nonzeros);
-			array_memory_occupancy = nonzeros;
-		}
+		values.resize(nonzeros);
+		rowIndex.resize(nonzeros);
+		colIndex.resize(nonzeros);
 
 		return true;
 	}
@@ -57,7 +51,6 @@ namespace chrono
 		values.resize(array_size);
 		colIndex.resize(array_size);
 		rowIndex.resize(array_size);
-		array_memory_occupancy = array_size;
  	}
 
 	void ChAssembledMatrix::Prune()
@@ -129,7 +122,10 @@ namespace chrono
 		if (add_element)
 		{
 			int entry_point = array_size;
-			Resize(mat_rows, mat_cols, array_size + 1);
+			if (values.capacity() < array_size + memory_augmentation)
+				Resize(mat_rows, mat_cols, array_size + memory_augmentation);
+			else
+				Resize(mat_rows, mat_cols, array_size + 1);
 
 			values[entry_point] = insval;
 			rowIndex[entry_point] = insrow;
@@ -146,16 +142,17 @@ namespace chrono
 			row--;
 			col--;
 		}
-		int el_sel;
-		for (el_sel = 0; el_sel < array_size; el_sel++)
+
+		double value = 0;
+		for (int el_sel = 0; el_sel < array_size; el_sel++)
 		{
 			if (rowIndex[el_sel] == row && colIndex[el_sel] == col) // element found
 			{
-				return values[el_sel];
+				value += values[el_sel];
 			}
 		}
 
-		return 0.0;
+		return value;
 
 	}
 
