@@ -26,8 +26,10 @@
 #include "chrono/utils/ChUtilsInputOutput.h"
 
 #include "chrono_vehicle/ChConfigVehicle.h"
+#include "chrono_vehicle/ChVehicleModelData.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
 #include "chrono_vehicle/driver/ChIrrGuiDriver.h"
+#include "chrono_vehicle/driver/ChDataDriver.h"
 #include "chrono_vehicle/utils/ChVehicleIrrApp.h"
 
 #include "hmmwv/HMMWV.h"
@@ -38,21 +40,32 @@ using namespace hmmwv;
 // =============================================================================
 
 // Initial vehicle location and orientation
-ChVector<> initLoc(0, 0, 1.0);
+ChVector<> initLoc(0, 0, 2.5);
 ChQuaternion<> initRot(1, 0, 0, 0);
 // ChQuaternion<> initRot(0.866025, 0, 0, 0.5);
 // ChQuaternion<> initRot(0.7071068, 0, 0, 0.7071068);
 // ChQuaternion<> initRot(0.25882, 0, 0, 0.965926);
 // ChQuaternion<> initRot(0, 0, 0, 1);
 
+enum DriverMode {DEFAULT, RECORD, PLAYBACK};
+DriverMode driver_mode = DEFAULT;
+
+// Visualization type for chassis & wheels (PRIMITIVES, MESH, or NONE)
+VisualizationType vis_type = PRIMITIVES;
+
 // Type of powertrain model (SHAFTS, SIMPLE)
 PowertrainModelType powertrain_model = SHAFTS;
+
+// Drive type (FWD, RWD, or AWD)
+DrivelineType drive_type = AWD;
 
 // Type of tire model (RIGID, PACEJKA, LUGRE, FIALA)
 TireModelType tire_model = RIGID;
 
-// Rigid terrain dimensions
-double terrainHeight = 0;
+// Rigid terrain
+RigidTerrain::Type terrain_model = RigidTerrain::FLAT;
+
+double terrainHeight = 0;      // terrain height (FLAT terrain only)
 double terrainLength = 100.0;  // size in X direction
 double terrainWidth = 100.0;   // size in Y direction
 
@@ -62,6 +75,9 @@ ChVector<> trackPoint(0.0, 0.0, 1.75);
 // Simulation step sizes
 double step_size = 0.001;
 double tire_step_size = step_size;
+
+// Simulation end time
+double t_end = 1000;
 
 // Time interval between two render frames
 double render_step_size = 1.0 / 50;  // FPS = 50
@@ -73,10 +89,6 @@ const std::string pov_dir = out_dir + "/POVRAY";
 // Debug logging
 bool debug_output = false;
 double debug_step_size = 1.0 / 1;  // FPS = 1
-
-// Save driver inputs
-bool driver_output = false;
-double driver_step_size = 1.0 / 1;  // FPS = 1
 
 // POV-Ray output
 bool povray_output = false;
@@ -91,11 +103,11 @@ int main(int argc, char* argv[]) {
     // Create the HMMWV vehicle, set parameters, and initialize
     HMMWV_Full my_hmmwv;
     my_hmmwv.SetChassisFixed(false);
-    my_hmmwv.SetChassisVis(PRIMITIVES);
-    my_hmmwv.SetWheelVis(PRIMITIVES);
+    my_hmmwv.SetChassisVis(vis_type);
+    my_hmmwv.SetWheelVis(vis_type);
     my_hmmwv.SetInitPosition(ChCoordsys<>(initLoc, initRot));
     my_hmmwv.SetPowertrainType(powertrain_model);
-    my_hmmwv.SetDriveType(RWD);
+    my_hmmwv.SetDriveType(drive_type);
     my_hmmwv.SetTireType(tire_model);
     my_hmmwv.SetTireStepSize(tire_step_size);
     my_hmmwv.Initialize();
@@ -104,8 +116,20 @@ int main(int argc, char* argv[]) {
     RigidTerrain terrain(my_hmmwv.GetSystem());
     terrain.SetContactMaterial(0.9f, 0.01f, 2e7f, 0.3f);
     terrain.SetColor(ChColor(0.8f, 0.8f, 0.5f));
-    terrain.SetTexture(GetChronoDataFile("textures/tile4.jpg"), 200, 200);
-    terrain.Initialize(terrainHeight, terrainLength, terrainWidth);
+    switch (terrain_model) {
+        case RigidTerrain::FLAT:
+            terrain.SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 200, 200);
+            terrain.Initialize(terrainHeight, terrainLength, terrainWidth);
+            break;
+        case RigidTerrain::HEIGHT_MAP:
+            terrain.SetTexture(vehicle::GetDataFile("terrain/textures/grass.jpg"), 16, 16);
+            terrain.Initialize(vehicle::GetDataFile("terrain/height_maps/test64.bmp"), "test64", 128, 128, 0, 4);
+            break;
+        case RigidTerrain::MESH:
+            terrain.SetTexture(vehicle::GetDataFile("terrain/textures/grass.jpg"), 100, 100);
+            terrain.Initialize(vehicle::GetDataFile("terrain/meshes/test.obj"), "test_mesh");
+            break;
+    }
 
     // Create the vehicle Irrlicht interface
     ChVehicleIrrApp app(my_hmmwv.GetVehicle(), my_hmmwv.GetPowertrain(), L"HMMWV Demo");
@@ -116,8 +140,31 @@ int main(int argc, char* argv[]) {
     app.AssetBindAll();
     app.AssetUpdateAll();
 
+    // -----------------
+    // Initialize output
+    // -----------------
+
+    if (ChFileutils::MakeDirectory(out_dir.c_str()) < 0) {
+        std::cout << "Error creating directory " << out_dir << std::endl;
+        return 1;
+    }
+    if (povray_output) {
+        if (ChFileutils::MakeDirectory(pov_dir.c_str()) < 0) {
+            std::cout << "Error creating directory " << pov_dir << std::endl;
+            return 1;
+        }
+        terrain.ExportMeshPovray(out_dir);
+    }
+
+    std::string driver_file = out_dir + "/driver_inputs.txt";
+    utils::CSV_writer driver_csv(" ");
+
+    // ------------------------
+    // Create the driver system
+    // ------------------------
+
     // Create the interactive driver system
-    ChIrrGuiDriver driver(app, my_hmmwv.GetVehicle(), my_hmmwv.GetPowertrain());
+    ChIrrGuiDriver driver(app);
 
     // Set the time response for steering and throttle keyboard inputs.
     double steering_time = 1.0;  // time to go from 0 to +1 (or from 0 to -1)
@@ -127,26 +174,11 @@ int main(int argc, char* argv[]) {
     driver.SetThrottleDelta(render_step_size / throttle_time);
     driver.SetBrakingDelta(render_step_size / braking_time);
 
-    // -----------------
-    // Initialize output
-    // -----------------
-
-    if (driver_output || povray_output) {
-        if (ChFileutils::MakeDirectory(out_dir.c_str()) < 0) {
-            std::cout << "Error creating directory " << out_dir << std::endl;
-            return 1;
-        }
-    }
-    if (povray_output) {
-        if (ChFileutils::MakeDirectory(pov_dir.c_str()) < 0) {
-            std::cout << "Error creating directory " << pov_dir << std::endl;
-            return 1;
-        }
-        my_hmmwv.ExportMeshPovray(out_dir);
-    }
-
-    if (driver_output) {
-        driver.LogInit(out_dir + "/driver_inputs.out");
+    // If in playback mode, attach the data file to the driver system and
+    // force it to playback the driver inputs.
+    if (driver_mode == PLAYBACK) {
+        driver.SetInputDataFile(driver_file);
+        driver.SetInputMode(ChIrrGuiDriver::DATAFILE);
     }
 
     // ---------------
@@ -161,7 +193,6 @@ int main(int argc, char* argv[]) {
     // Number of simulation steps between miscellaneous events
     int render_steps = (int)std::ceil(render_step_size / step_size);
     int debug_steps = (int)std::ceil(debug_step_size / step_size);
-    int driver_steps = (int)std::ceil(driver_step_size / step_size);
 
     // Initialize simulation frame counter and simulation time
     ChRealtimeStepTimer realtime_timer;
@@ -171,6 +202,10 @@ int main(int argc, char* argv[]) {
 
     while (app.GetDevice()->run()) {
         time = my_hmmwv.GetSystem()->GetChTime();
+
+        // End simulation
+        if (time >= t_end)
+            break;
 
         // Render scene and output POV-Ray data
         if (step_number % render_steps == 0) {
@@ -194,15 +229,15 @@ int main(int argc, char* argv[]) {
             my_hmmwv.DebugLog(DBG_SPRINGS | DBG_SHOCKS | DBG_CONSTRAINTS);
         }
 
-        // Driver output
-        if (driver_output && step_number % driver_steps == 0) {
-            driver.Log(time);
-        }
-
         // Collect output data from modules (for inter-module communication)
         double throttle_input = driver.GetThrottle();
         double steering_input = driver.GetSteering();
         double braking_input = driver.GetBraking();
+
+        // Driver output
+        if (driver_mode == RECORD) {
+            driver_csv << time << steering_input << throttle_input << braking_input << std::endl;
+        }
 
         // Update modules (process inputs from other modules)
         driver.Update(time);
@@ -219,6 +254,10 @@ int main(int argc, char* argv[]) {
 
         // Increment frame number
         step_number++;
+    }
+
+    if (driver_mode == RECORD) {
+        driver_csv.write_to_file(driver_file);
     }
 
     return 0;

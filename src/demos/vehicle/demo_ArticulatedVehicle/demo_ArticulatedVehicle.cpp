@@ -115,7 +115,7 @@ int main(int argc, char* argv[]) {
     RigidTerrain terrain(vehicle.GetSystem());
     terrain.SetContactMaterial(0.9f, 0.01f, 2e7f, 0.3f);
     terrain.SetColor(ChColor(0.5f, 0.5f, 1));
-    terrain.SetTexture(GetChronoDataFile("textures/tile4.jpg"), 200, 200);
+    terrain.SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 200, 200);
     terrain.Initialize(terrainHeight, terrainLength, terrainWidth);
 
     // Create and initialize the powertrain system
@@ -157,7 +157,7 @@ int main(int argc, char* argv[]) {
     app.AssetBindAll();
     app.AssetUpdateAll();
 
-    ChIrrGuiDriver driver(app, vehicle, powertrain);
+    ChIrrGuiDriver driver(app);
 
     // Set the time response for steering and throttle keyboard inputs.
     // NOTE: this is not exact, since we do not render quite at the specified FPS.

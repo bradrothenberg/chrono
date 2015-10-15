@@ -209,7 +209,7 @@ namespace chrono
 	void ChMklEngine::ResetSolver(int new_mat_type)
 	{
 		// After the first call to pardiso do not directly modify "pt", as that could cause a serious memory leak.
-		if (!new_mat_type)
+		if (new_mat_type)
 			mtype = new_mat_type;
 		pardisoinit(pt, &mtype, iparm);
 
