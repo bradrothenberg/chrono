@@ -4,6 +4,23 @@
 namespace chrono
 {
 
+	ChAssembledMatrix::ChAssembledMatrix(int mat_rows, int mat_cols, int nonzeros):
+		array_size(0),
+		array_memory_occupancy(0),
+		memory_augmentation(4),
+	    mat_rows(mat_rows),
+		mat_cols(mat_cols),
+		oneIndexed_format(false),
+		safe_overwrite(true)
+	{
+		assert(nonzeros >= 0 && mat_rows > 0 && mat_cols > 0);
+
+		if (nonzeros == 0)
+			nonzeros = mat_rows*mat_cols*SPM_DEF_FULLNESS;
+
+		ChAssembledMatrix::Reset(mat_rows, mat_cols, nonzeros);
+	}
+
 	bool ChAssembledMatrix::Resize(int row, int col, int nonzeros)
 	{
 		mat_rows = row;
@@ -27,6 +44,10 @@ namespace chrono
  	{
 		mat_rows = row;
 		mat_cols = col;
+
+		values.reserve(nonzeros);
+		rowIndex.reserve(nonzeros);
+		colIndex.reserve(nonzeros);
 		array_size = 0;
 		SetOneIndexedArray(false);
 	}
@@ -39,7 +60,40 @@ namespace chrono
 		array_memory_occupancy = array_size;
  	}
 
- 	void ChAssembledMatrix::SetElement(int insrow, int inscol, double insval, bool overwrite)
+	void ChAssembledMatrix::Prune()
+	{
+		int cont = 0;
+		int shift = 0;
+		for (cont = 0; cont<array_size; cont++)
+		{
+			if (values[cont] == 0)
+			{
+				break;
+			}
+				
+		}
+
+		if (cont == 0)
+		{
+			printf("Matrix inconsistent");
+			assert(0);
+		}
+		
+
+		for (int cont_source = cont; cont_source < array_size; cont_source++)
+		{
+			if (values[cont_source] != 0)
+			{
+				values[cont_source - shift] = values[cont_source];
+				rowIndex[cont_source - shift] = rowIndex[cont_source];
+				colIndex[cont_source - shift] = colIndex[cont_source];
+			}
+			else
+				shift++;	
+		}
+	}
+
+	void ChAssembledMatrix::SetElement(int insrow, int inscol, double insval, bool overwrite)
 	{
 		if (oneIndexed_format)
 		{
@@ -51,27 +105,35 @@ namespace chrono
 		// the Mumps library accepts also duplicate entries (that will be summed),
 		// but in this case, when we wanted to overwrite (most common) we should heve checked ALL the elements in the array
 		// to avoid that some duplicated entries had left... this could increase time spent at every set element
-		int el_sel;
-		for (el_sel = 0; el_sel < array_size; el_sel++)
+
+		bool add_element = true;
+
+		if (overwrite)
 		{
-			if (rowIndex[el_sel] == insrow && colIndex[el_sel] == inscol) // element found
+			for (int el_sel = 0; el_sel < array_size; el_sel++)
 			{
-				if (overwrite)
+				if (rowIndex[el_sel] == insrow && colIndex[el_sel] == inscol) // element found
+				{
 					values[el_sel] = insval;
-				else
-					values[el_sel] += insval;
-				break;
+					add_element = false;
+					if (!safe_overwrite)
+						break;
+					else
+						insval = 0;
+				}
 			}
 		}
+		
 
-		// element not found
-		if (el_sel == array_size)
+		// element not found or not overwrite
+		if (add_element)
 		{
+			int entry_point = array_size;
 			Resize(mat_rows, mat_cols, array_size + 1);
 
-			values[el_sel] = insval;
-			rowIndex[el_sel] = insrow;
-			colIndex[el_sel] = inscol;
+			values[entry_point] = insval;
+			rowIndex[entry_point] = insrow;
+			colIndex[entry_point] = inscol;
 			array_size++;
 		}
 
