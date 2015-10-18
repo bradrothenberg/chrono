@@ -11,12 +11,10 @@ find_package(mumps)
 # ------------------------------------------------------------------------------
 # Collect all additional include directories necessary for the Mumps module
 # ------------------------------------------------------------------------------
-
-# SET(CH_MKL_INCLUDES
-    # ${MKL_INCLUDE_DIRS}
-# )
-
-# INCLUDE_DIRECTORIES(${CH_MKL_INCLUDES})
+INCLUDE_DIRECTORIES(${ChronoEngine_UNIT_MUMPS_INCLUDE})
+SET(ChronoEngine_UNIT_MUMPS_INCLUDE
+    ${CH_MUMPS_INCLUDES}
+)
 
 SET(CH_MUMPS_INCLUDES "${CH_MUMPS_INCLUDES}" PARENT_SCOPE)
 MESSAGE(STATUS "${CH_MUMPS_INCLUDES}")
