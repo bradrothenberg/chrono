@@ -56,20 +56,18 @@ namespace chrono {
 	   double res_norm = 0;
 	   ChMumpsEngine mumps_engine;
 
-	   bool size_lock = true;
-	   bool sparsity_pattern_lock = true;
-
    public:
 
 	   ChLcpMumpsSolver() {};
 	   virtual ~ChLcpMumpsSolver(){};
 
 
-         /// Solve using the MUMPS
+        /// Solve using MUMPS
 		virtual double Solve(ChLcpSystemDescriptor& sysd) override; ///< system description with constraints and variables
 
-		
-		
+		// Auxiliary functions
+		void SetDuplicatesAllowed(bool on_off){ ass_mat.SetDuplicatesAllowed(on_off); }
+		void SetOverwriteMeansNew(bool on_off){ ass_mat.SetOverwriteMeansNew(on_off); }
 	   
 
 
