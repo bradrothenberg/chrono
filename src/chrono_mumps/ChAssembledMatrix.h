@@ -18,19 +18,22 @@ namespace chrono{
 		int mat_cols;
 
 		bool oneIndexed_format;
-		bool safe_overwrite;
+
 
 		std::vector<double> values;
 		std::vector<int> rowIndex;
 		std::vector<int> colIndex;
+		
+	protected:
+		bool duplicates_allowed;
+		bool overwrite_means_new;
 
 
 	public:
-		ChAssembledMatrix(int mat_rows = 3, int mat_cols = 3, int nonzeros = 0);
+		ChAssembledMatrix(int mat_rows = 3, int mat_cols = 3, int nonzeros = 0, bool duplicate_adm = true, bool ovr_means_new = false);
 		virtual ~ChAssembledMatrix(){};
 
 
-		//
 		void SetElement(int insrow, int inscol, double insval, bool overwrite = true) override;
 		double GetElement(int row, int col);
 
@@ -51,7 +54,8 @@ namespace chrono{
 
 		// Auxiliary functions
 		void SetOneIndexedArray(bool on_off);
-		void SetSafeSetElementOverwrite(bool on_off) { safe_overwrite = on_off; }
+		void SetDuplicatesAllowed(bool on_off){ duplicates_allowed = on_off; }
+		void SetOverwriteMeansNew(bool on_off){ overwrite_means_new = on_off; }
 
 		double* GetValuesAddress() const { return const_cast<double*>(values.data()); }
 		int* GetColIndexAddress() const { return const_cast<int*>(colIndex.data()); }

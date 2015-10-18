@@ -4,18 +4,20 @@
 namespace chrono
 {
 
-	ChAssembledMatrix::ChAssembledMatrix(int mat_rows, int mat_cols, int nonzeros):
+	ChAssembledMatrix::ChAssembledMatrix(int mat_rows, int mat_cols, int nonzeros, bool duplicate_adm, bool ovr_means_new) :
 		array_size(0),
 		memory_augmentation(4),
 	    mat_rows(mat_rows),
 		mat_cols(mat_cols),
 		oneIndexed_format(false),
-		safe_overwrite(true)
+		duplicates_allowed(duplicate_adm),
+		overwrite_means_new(ovr_means_new)
+
 	{
 		assert(nonzeros >= 0 && mat_rows > 0 && mat_cols > 0);
 
 		if (nonzeros == 0)
-			nonzeros = mat_rows*mat_cols*SPM_DEF_FULLNESS;
+			nonzeros = static_cast<int>(mat_rows*mat_cols*SPM_DEF_FULLNESS);
 
 		ChAssembledMatrix::Reset(mat_rows, mat_cols, nonzeros);
 	}
@@ -101,31 +103,34 @@ namespace chrono
 
 		bool add_element = true;
 
-		if (overwrite)
+		if ( (overwrite && !overwrite_means_new) ||
+			 (!overwrite || !duplicates_allowed) )// case: add to an eventually existing item
+			
 		{
 			for (int el_sel = 0; el_sel < array_size; el_sel++)
 			{
 				if (rowIndex[el_sel] == insrow && colIndex[el_sel] == inscol) // element found
 				{
-					values[el_sel] = insval;
-					add_element = false;
-					if (!safe_overwrite)
-						break;
-					else
+						if (overwrite)
+							values[el_sel] = insval;
+						else
+							values[el_sel] += insval;
+
+						if (!duplicates_allowed)
+							break;
+
+						add_element = false;
 						insval = 0;
 				}
 			}
 		}
 		
 
-		// element not found or not overwrite
+		// element not found or not overwrite or overwrite_new
 		if (add_element)
 		{
 			int entry_point = array_size;
-			if (values.capacity() < array_size + memory_augmentation)
-				Resize(mat_rows, mat_cols, array_size + memory_augmentation);
-			else
-				Resize(mat_rows, mat_cols, array_size + 1);
+			Resize(mat_rows, mat_cols, array_size + 1);
 
 			values[entry_point] = insval;
 			rowIndex[entry_point] = insrow;
@@ -149,6 +154,8 @@ namespace chrono
 			if (rowIndex[el_sel] == row && colIndex[el_sel] == col) // element found
 			{
 				value += values[el_sel];
+				if (!duplicates_allowed)
+					break;
 			}
 		}
 
