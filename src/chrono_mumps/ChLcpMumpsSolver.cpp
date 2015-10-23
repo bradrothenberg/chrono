@@ -15,7 +15,7 @@ namespace chrono
 		mumps_engine.SetProblem(ass_mat, rhs);
 		mumps_engine.MumpsCall();
 		solver_call++;
-		printf("Call: %d\n", solver_call);
+		printf("\nCall: %d\n", solver_call);
 
 		sysd.FromVectorToUnknowns(rhs);
 

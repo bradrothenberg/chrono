@@ -58,7 +58,11 @@ namespace chrono {
 
    public:
 
-	   ChLcpMumpsSolver() {};
+	   ChLcpMumpsSolver()
+	   {
+		   SetDuplicatesAllowed(true);
+		   SetOverwriteMeansNew(true);
+	   };
 	   virtual ~ChLcpMumpsSolver(){};
 
 

@@ -104,17 +104,14 @@ namespace chrono
 		bool add_element = true;
 
 		if ( (overwrite && !overwrite_means_new) ||
-			 (!overwrite || !duplicates_allowed) )// case: add to an eventually existing item
+			 (!overwrite && !duplicates_allowed) ) // case: add to an eventually existing item
 			
 		{
 			for (int el_sel = 0; el_sel < array_size; el_sel++)
 			{
 				if (rowIndex[el_sel] == insrow && colIndex[el_sel] == inscol) // element found
 				{
-						if (overwrite)
-							values[el_sel] = insval;
-						else
-							values[el_sel] += insval;
+						(overwrite) ? values[el_sel] = insval : values[el_sel] += insval;
 
 						if (!duplicates_allowed)
 							break;
@@ -122,7 +119,7 @@ namespace chrono
 						add_element = false;
 						insval = 0;
 				}
-			}
+			} //end loop
 		}
 		
 
