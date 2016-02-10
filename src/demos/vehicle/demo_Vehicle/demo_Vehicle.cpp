@@ -33,25 +33,26 @@
 #include "chrono_vehicle/ChConfigVehicle.h"
 #include "chrono_vehicle/ChVehicleModelData.h"
 
-#include "chrono_vehicle/vehicle/Vehicle.h"
 #include "chrono_vehicle/powertrain/SimplePowertrain.h"
 #include "chrono_vehicle/driver/ChDataDriver.h"
-#include "chrono_vehicle/tire/RigidTire.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
+#include "chrono_vehicle/wheeled_vehicle/vehicle/WheeledVehicle.h"
+#include "chrono_vehicle/wheeled_vehicle/tire/RigidTire.h"
 
 #include "chrono_vehicle/ChConfigVehicle.h"
 
 // If Irrlicht support is available...
 #ifdef CHRONO_IRRLICHT
 // ...include additional headers
-#include "chrono_irrlicht/ChIrrApp.h"
 #include "chrono_vehicle/driver/ChIrrGuiDriver.h"
+#include "chrono_vehicle/wheeled_vehicle/utils/ChWheeledVehicleIrrApp.h"
 
 // ...and specify whether the demo should actually use Irrlicht
 #define USE_IRRLICHT
 #endif
 
 using namespace chrono;
+using namespace chrono::vehicle;
 
 // =============================================================================
 
@@ -59,24 +60,23 @@ using namespace chrono;
 // std::string vehicle_file("hmmwv/vehicle/HMMWV_Vehicle.json");
 // std::string vehicle_file("hmmwv/vehicle/HMMWV_Vehicle_simple_lugged.json");
 // std::string vehicle_file("hmmwv/vehicle/HMMWV_Vehicle_4WD.json");
-// std::string vehicle_file("generic/vehicle/Vehicle_DoubleWishbones.json");
-//std::string vehicle_file("generic/vehicle/Vehicle_DoubleWishbones_ARB.json");
-std::string vehicle_file("MAN_5t/vehicle/MAN_5t_Vehicle_4WD.json");
+std::string vehicle_file("generic/vehicle/Vehicle_DoubleWishbones.json");
+// std::string vehicle_file("generic/vehicle/Vehicle_DoubleWishbones_ARB.json");
+// std::string vehicle_file("MAN_5t/vehicle/MAN_5t_Vehicle_4WD.json");
 // std::string vehicle_file("generic/vehicle/Vehicle_MultiLinks.json");
 // std::string vehicle_file("generic/vehicle/Vehicle_SolidAxles.json");
 // std::string vehicle_file("generic/vehicle/Vehicle_ThreeAxles.json");
 // std::string vehicle_file("generic/vehicle_multisteer/Vehicle_DualFront_Independent.json");
 // std::string vehicle_file("generic/vehicle_multisteer/Vehicle_DualFront_Shared.json");
+// std::string vehicle_file("generic/vehicle/Vehicle_MacPhersonStruts.json");
 
-// JSON files for terrain (rigid plane), tire models (rigid), and powertrain (simple)
-//std::string rigidterrain_file("terrain/RigidPlane.json");
-//std::string rigidtire_file("generic/tire/RigidTire.json");
-//std::string simplepowertrain_file("generic/powertrain/SimplePowertrain.json");
-
-// JSON files MAN 5t for terrain (rigid plane), tire models (rigid), and powertrain (simple)
+// JSON files for terrain (rigid plane), and powertrain (simple)
 std::string rigidterrain_file("terrain/RigidPlane.json");
-std::string rigidtire_file("MAN_5t/tire/MAN_5t_RigidTire.json");
 std::string simplepowertrain_file("generic/powertrain/SimplePowertrain.json");
+
+// JSON files tire models (rigid)
+std::string rigidtire_file("generic/tire/RigidTire.json");
+//std::string rigidtire_file("MAN_5t/tire/MAN_5t_RigidTire.json");
 
 // Driver input file (if not using Irrlicht)
 std::string driver_file("generic/driver/Sample_Maneuver.txt");
@@ -97,7 +97,7 @@ double terrainLength = 300.0;  // size in X direction
 double terrainWidth = 200.0;   // size in Y direction
 
 // Simulation step size
-double step_size = 1e-4;
+double step_size = 1e-3;
 
 // Time interval between two render frames
 double render_step_size = 1.0 / 50;  // FPS = 50
@@ -123,7 +123,7 @@ int main(int argc, char* argv[]) {
     // --------------------------
 
     // Create the vehicle system
-    Vehicle vehicle(vehicle::GetDataFile(vehicle_file));
+    WheeledVehicle vehicle(vehicle::GetDataFile(vehicle_file), ChMaterialSurfaceBase::DEM);
     vehicle.Initialize(ChCoordsys<>(initLoc, initRot));
     ////vehicle.GetChassis()->SetBodyFixed(true);
 
@@ -146,7 +146,7 @@ int main(int argc, char* argv[]) {
 
 #ifdef USE_IRRLICHT
 
-    ChVehicleIrrApp app(vehicle, powertrain, L"Vehicle Demo");
+    ChVehicleIrrApp app(&vehicle, &powertrain, L"Vehicle Demo");
 
     app.SetSkyBox();
     app.AddTypicalLights(irr::core::vector3df(30.f, -30.f, 100.f), irr::core::vector3df(30.f, 50.f, 100.f), 250, 130);
@@ -193,7 +193,7 @@ int main(int argc, char* argv[]) {
 
 #else
 
-    ChDataDriver driver(vehicle::GetDataFile(driver_file));
+    ChDataDriver driver(vehicle, vehicle::GetDataFile(driver_file));
 
 #endif
 
@@ -202,8 +202,8 @@ int main(int argc, char* argv[]) {
     // ---------------
 
     // Inter-module communication data
-    ChTireForces tire_forces(num_wheels);
-    ChWheelStates wheel_states(num_wheels);
+    TireForces tire_forces(num_wheels);
+    WheelStates wheel_states(num_wheels);
     double driveshaft_speed;
     double powertrain_torque;
     double throttle_input;
@@ -326,7 +326,7 @@ int main(int argc, char* argv[]) {
         vehicle.Update(time, steering_input, braking_input, powertrain_torque, tire_forces);
         terrain.Update(time);
         for (int i = 0; i < num_wheels; i++)
-            tires[i]->Update(time, wheel_states[i],terrain);
+            tires[i]->Update(time, wheel_states[i], terrain);
 
         // Advance simulation for one timestep for all modules
         driver.Advance(step_size);

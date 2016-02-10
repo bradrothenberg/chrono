@@ -25,55 +25,45 @@
 
 #include <string>
 
-#include "physics/ChSystem.h"
-#include "utils/ChUtilsChaseCamera.h"
+#include "chrono/physics/ChSystem.h"
+#include "chrono/utils/ChUtilsChaseCamera.h"
 
 #include "chrono_irrlicht/ChIrrApp.h"
 
 #include "chrono_vehicle/ChApiVehicle.h"
-#include "chrono_vehicle/ChVehicle.h"
 #include "chrono_vehicle/ChPowertrain.h"
+#include "chrono_vehicle/ChVehicle.h"
 
 #ifdef CHRONO_IRRKLANG
 #include <irrKlang.h>
 #endif
 
 namespace chrono {
+namespace vehicle {
+
+/// @addtogroup vehicle_utils
+/// @{
 
 // Forward declaration
-class ChVehicleIrrApp;
+class ChCameraEventReceiver;  ///< custom event receiver for chase-cam control
 
-///
-/// Custom event receiver for chase-cam control.
-///
-class ChCameraEventReceiver : public irr::IEventReceiver {
-  public:
-    /// Construct a custom event receiver.
-    ChCameraEventReceiver(ChVehicleIrrApp* app) : m_app(app) {}
-
-    /// Implementation of the event processing method.
-    /// This function interprest keyboard inputs for controlling the chase camera in
-    /// the associated vehicle Irrlicht application.
-    virtual bool OnEvent(const irr::SEvent& event);
-
-  private:
-    ChVehicleIrrApp* m_app;  ///< pointer to the associated vehicle Irrlicht app
-};
-
-///
 /// Customized Chrono Irrlicht application for vehicle visualization.
-///
-class CH_VEHICLE_API ChVehicleIrrApp : public irr::ChIrrApp {
+/// This class implements an Irrlicht-based visualization wrapper for vehicles.
+/// This class is a wrapper around a ChIrrApp object and provides the following functionality:
+///   - rendering of the entire Irrlicht scene
+///   - implements a custom chase-camera (which can be controlled with keyboard)
+///   - optional rendering of links, springs, stats, etc.
+class CH_VEHICLE_API ChVehicleIrrApp : public irrlicht::ChIrrApp {
   public:
     /// Construct a vehicle Irrlicht application.
     ChVehicleIrrApp(
-        ChVehicle& car,            ///< reference to the vehicle system
-        ChPowertrain& powertrain,  /// reference to the powertrain system
+        ChVehicle* vehicle,        ///< pointer to the associated vehicle system
+        ChPowertrain* powertrain,  /// pointer to the associated powertrain system
         const wchar_t* title = 0,  ///< window title
         irr::core::dimension2d<irr::u32> dims = irr::core::dimension2d<irr::u32>(1000, 800)  ///< window dimensions
         );
 
-    ~ChVehicleIrrApp();
+    virtual ~ChVehicleIrrApp();
 
     /// Create a skybox that has Z pointing up.
     /// Note that the default ChIrrApp::AddTypicalSky() uses Y up.
@@ -123,11 +113,17 @@ class CH_VEHICLE_API ChVehicleIrrApp : public irr::ChIrrApp {
     /// by the specified duration.
     void Advance(double step);
 
-  private:
-    void renderSprings();
-    void renderLinks();
-    void renderGrid();
-    void renderStats();
+    /// Save a snapshot of the last rendered frame to file.
+    /// The file name extension determines the image format.
+    void WriteImageToFile(const std::string& filename);
+
+  protected:
+    /// Render additional graphics
+    virtual void renderOtherGraphics() {}
+
+    /// Render additional vehicle information.
+    virtual void renderOtherStats(int left, int top) {}
+
     void renderLinGauge(const std::string& msg,
                         double factor,
                         bool sym,
@@ -135,6 +131,7 @@ class CH_VEHICLE_API ChVehicleIrrApp : public irr::ChIrrApp {
                         int ypos,
                         int length = 120,
                         int height = 15);
+
     void renderTextBox(const std::string& msg,
                        int xpos,
                        int ypos,
@@ -142,8 +139,14 @@ class CH_VEHICLE_API ChVehicleIrrApp : public irr::ChIrrApp {
                        int height = 15,
                        irr::video::SColor color = irr::video::SColor(255, 20, 20, 20));
 
-    ChVehicle& m_car;            ///< reference to the associated vehicle system
-    ChPowertrain& m_powertrain;  ///< reference to the associated powertrain system
+    ChVehicle* m_vehicle;        ///< pointer to the associated vehicle system
+    ChPowertrain* m_powertrain;  ///< pointer to the associated powertrain system
+
+  private:
+    void renderSprings();
+    void renderLinks();
+    void renderGrid();
+    void renderStats();
 
     utils::ChChaseCamera m_camera;            ///< chase camera
     ChCameraEventReceiver* m_camera_control;  ///< event receiver for chase-cam control
@@ -174,6 +177,9 @@ class CH_VEHICLE_API ChVehicleIrrApp : public irr::ChIrrApp {
     friend class ChIrrGuiDriver;
 };
 
+// @} vehicle_utils
+
+}  // end namespace vehicle
 }  // end namespace chrono
 
 #endif

@@ -105,6 +105,7 @@ class ChApi ChShaftsClutch : public ChShaftsCouple {
                                      bool do_clamp,
                                      double recovery_clamp);
     virtual void IntLoadConstraint_Ct(const unsigned int off, ChVectorDynamic<>& Qc, const double c){};
+    virtual void IntLoadResidual_F(const unsigned int off, ChVectorDynamic<>& R, const double c);
     virtual void IntToLCP(const unsigned int off_v,
                           const ChStateDelta& v,
                           const ChVectorDynamic<>& R,
@@ -187,16 +188,14 @@ class ChApi ChShaftsClutch : public ChShaftsCouple {
     virtual void Update(double mytime, bool update_assets = true);
 
     //
-    // STREAMING
+    // SERIALIZATION
     //
 
-    /// Method to allow deserializing a persistent binary archive (ex: a file)
-    /// into transient data.
-    void StreamIN(ChStreamInBinary& mstream);
+    /// Method to allow serialization of transient data to archives.
+    virtual void ArchiveOUT(ChArchiveOut& marchive);
 
-    /// Method to allow serializing transient data into a persistent
-    /// binary archive (ex: a file).
-    void StreamOUT(ChStreamOutBinary& mstream);
+    /// Method to allow deserialization of transient data from archives.
+    virtual void ArchiveIN(ChArchiveIn& marchive);
 };
 
 typedef ChSharedPtr<ChShaftsClutch> ChSharedShaftsClutchPtr;

@@ -11,33 +11,105 @@
 // =============================================================================
 // Authors: Bryan Peterson, Milad Rakhsha, Antonio Recuero, Radu Serban
 // =============================================================================
-//
 // ANCF laminated shell element with four nodes.
-//
 // =============================================================================
 
 #ifndef CHELEMENTSHELLANCF_H
 #define CHELEMENTSHELLANCF_H
 
-#include "chrono/physics/ChContinuumMaterial.h"
+#include <vector>
 
 #include "chrono_fea/ChApiFEA.h"
 #include "chrono_fea/ChElementShell.h"
 #include "chrono_fea/ChNodeFEAxyzD.h"
+#include "chrono_fea/ChUtilsFEA.h"
+#include "core/ChQuadrature.h"
+#include "core/ChShared.h"
 
 namespace chrono {
-
 namespace fea {
 
-///
+/// @addtogroup fea_elements
+/// @{
+
+// ----------------------------------------------------------------------------
+/// Material definition.
+/// This class implements material properties for a layer.
+class ChApiFea ChMaterialShellANCF : public ChShared {
+  public:
+    /// Construct an isotropic material.
+    ChMaterialShellANCF(double rho,  ///< material density
+                        double E,    ///< Young's modulus
+                        double nu    ///< Poisson ratio
+                        );
+
+    /// Construct a (possibly) orthotropic material.
+    ChMaterialShellANCF(double rho,            ///< material density
+                        const ChVector<>& E,   ///< elasticity moduli (E_x, E_y, E_z)
+                        const ChVector<>& nu,  ///< Poisson ratios (nu_xy, nu_xz, nu_yz)
+                        const ChVector<>& G    ///< shear moduli (G_xy, G_xz, G_yz)
+                        );
+
+    /// Return the material density.
+    double Get_rho() const { return m_rho; }
+
+    /// Return the matrix of elastic coefficients.
+    const ChMatrixNM<double, 6, 6>& Get_E_eps() const { return m_E_eps; }
+
+  private:
+    /// Calculate the matrix of elastic coefficients.
+    void Calc_E_eps(const ChVector<>& E, const ChVector<>& nu, const ChVector<>& G);
+
+    double m_rho;                      ///< density
+    ChMatrixNM<double, 6, 6> m_E_eps;  ///< matrix of elastic coefficients
+};
+
+// ----------------------------------------------------------------------------
 /// ANCF laminated shell element with four nodes.
-///
-class ChApiFea ChElementShellANCF : public ChElementShell, 
-                                    public ChLoadableUV, 
-                                    public ChLoadableUVW {
+/// This class implements composite material elastic force formulations.
+class ChApiFea ChElementShellANCF : public ChElementShell, public ChLoadableUV, public ChLoadableUVW {
   public:
     ChElementShellANCF();
     ~ChElementShellANCF() {}
+
+    /// Definition of a layer
+    class Layer {
+      public:
+        /// Return the layer thickness.
+        double Get_thickness() const { return m_thickness; }
+
+        /// Return the fiber angle.
+        double Get_theta() const { return m_theta; }
+
+        /// Return the layer material.
+        ChSharedPtr<ChMaterialShellANCF> GetMaterial() const { return m_material; }
+
+      private:
+        /// Private constructor (a layer can be created only by adding it to an element)
+        Layer(ChElementShellANCF* element,               ///< containing element
+              double thickness,                          ///< layer thickness
+              double theta,                              ///< fiber angle
+              ChSharedPtr<ChMaterialShellANCF> material  ///< layer material
+              );
+
+        double Get_detJ0C() const { return m_detJ0C; }
+        const ChMatrixNM<double, 6, 6>& Get_T0() const { return m_T0; }
+
+        /// Initial setup for this layer: calculate T0 and detJ0 at the element center.
+        void SetupInitial();
+
+        ChElementShellANCF* m_element;                ///< containing ANCF shell element
+        ChSharedPtr<ChMaterialShellANCF> m_material;  ///< layer material
+        double m_thickness;                           ///< layer thickness
+        double m_theta;                               ///< fiber angle
+
+        double m_detJ0C;
+        ChMatrixNM<double, 6, 6> m_T0;
+
+        friend class ChElementShellANCF;
+        friend class MyForce;
+        friend class MyJacobian;
+    };
 
     /// Get the number of nodes used by this element.
     virtual int GetNnodes() override { return 4; }
@@ -55,6 +127,12 @@ class ChApiFea ChElementShellANCF : public ChElementShell,
                   ChSharedPtr<ChNodeFEAxyzD> nodeC,
                   ChSharedPtr<ChNodeFEAxyzD> nodeD);
 
+    /// Specify the element dimensions.
+    void SetDimensions(double lenX, double lenY) {
+        m_lenX = lenX;
+        m_lenY = lenY;
+    }
+
     /// Access the n-th node of this element.
     virtual ChSharedPtr<ChNodeFEAbase> GetNodeN(int n) override { return m_nodes[n]; }
 
@@ -70,108 +148,102 @@ class ChApiFea ChElementShellANCF : public ChElementShell,
     /// Get a handle to the fourth node of this element.
     ChSharedPtr<ChNodeFEAxyzD> GetNodeD() const { return m_nodes[3]; }
 
-    /// Set the numbber of layers (for laminate shell)
-    void SetNumLayers(int numLayers) { m_numLayers = numLayers; }
+    /// Add a layer.
+    void AddLayer(double thickness,                          ///< layer thickness
+                  double theta,                              ///< fiber angle (radians)
+                  ChSharedPtr<ChMaterialShellANCF> material  ///< layer material
+                  );
 
-    /// Set the stotal shell thickness.
-    void SetThickness(double th) { m_thickness = th; }
+    /// Get the number of layers.
+    size_t GetNumLayers() const { return m_numLayers; }
 
-    /// Set the element number (for EAS).
-    /// Used for debugging purposes only.
-    void SetElemNum(int kb) { m_element_number = kb; }
-
-    /// Set the continuum elastic material.
-    void SetMaterial(ChSharedPtr<ChContinuumElastic> my_material) { m_Material = my_material; }
-
-    /// Get a handle to the material for this element.
-    ChSharedPtr<ChContinuumElastic> GetMaterial() const { return m_Material; }
-
-    void SetStockAlpha(const ChMatrixNM<double, 35, 1>& a) { m_StockAlpha_EAS = a; }
-
-    const ChMatrixNM<double, 35, 1>& GetStockAlpha() const { return m_StockAlpha_EAS; }  //// for EAS
-
-    void SetStockJac(const ChMatrixNM<double, 24, 24>& a) { m_stock_jac_EAS = a; }  //// for EAS
-
-    void SetStockKTE(const ChMatrixNM<double, 24, 24>& a) { m_stock_KTE = a; }  //// for EAS
-
-    void SetInertFlexVec(const ChMatrixNM<double, 98, 1>& a) { m_InertFlexVec = a; }  //// for Laminate shell
-
-    const ChMatrixNM<double, 98, 1>& GetInertFlexVec() const { return m_InertFlexVec; }  //// for Laminate shell
-
-    void SetGaussZRange(const ChMatrixNM<double, 7, 2>& a) { m_GaussZRange = a; }  //// for Laminate shell
-
-    const ChMatrixNM<double, 7, 2>& GetGaussZRange() const { return m_GaussZRange; }  //// for Laminate shell
-
-    /// Set the step size used in calculating the structural damping coefficient.
-    void Setdt(double a) { m_dt = a; }
+    /// Get a handle to the specified layer.
+    const Layer& GetLayer(size_t i) const { return m_layers[i]; }
 
     /// Turn gravity on/off.
     void SetGravityOn(bool val) { m_gravity_on = val; }
-
-    /// Turn air pressure on/off.
-    void SetAirPressureOn(bool val) { m_air_pressure_on = val; }
 
     /// Set the structural damping.
     void SetAlphaDamp(double a) { m_Alpha = a; }
 
     /// Get the element length in the X direction.
-    /// For laminate shell. each layer has the same element length
-    double GetLengthX() const { return m_InertFlexVec(1); }
-
+    double GetLengthX() const { return m_lenX; }
     /// Get the element length in the Y direction.
-    /// For laminate shell. each layer has the same element length
-    double GetLengthY() const { return m_InertFlexVec(2); }
+    double GetLengthY() const { return m_lenY; }
+    /// Get the total thickness of the shell element.
+    double GetThickness() { return m_thickness; }
+
+    // Shape functions
+    // ---------------
+
+    /// Fills the N shape function matrix.
+    /// NOTE! actually N should be a 3row, 24 column sparse matrix,
+    /// as  N = [s1*eye(3) s2*eye(3) s3*eye(3) s4*eye(3)...]; ,
+    /// but to avoid wasting zero and repeated elements, here
+    /// it stores only the s1 through s8 values in a 1 row, 8 columns matrix!
+    void ShapeFunctions(ChMatrix<>& N, double x, double y, double z);
+
+    /// Fills the Nx shape function derivative matrix with respect to X.
+    /// NOTE! to avoid wasting zero and repeated elements, here
+    /// it stores only the four values in a 1 row, 8 columns matrix!
+    void ShapeFunctionsDerivativeX(ChMatrix<>& Nx, double x, double y, double z);
+
+    /// Fills the Ny shape function derivative matrix with respect to Y.
+    /// NOTE! to avoid wasting zero and repeated elements, here
+    /// it stores only the four values in a 1 row, 8 columns matrix!
+    void ShapeFunctionsDerivativeY(ChMatrix<>& Ny, double x, double y, double z);
+
+    /// Fills the Nz shape function derivative matrix with respect to Z.
+    /// NOTE! to avoid wasting zero and repeated elements, here
+    /// it stores only the four values in a 1 row, 8 columns matrix!
+    void ShapeFunctionsDerivativeZ(ChMatrix<>& Nz, double x, double y, double z);
 
   private:
-    enum JacobianType { ANALYTICAL, NUMERICAL };
+    std::vector<ChSharedPtr<ChNodeFEAxyzD> > m_nodes;    ///< element nodes
+    std::vector<Layer> m_layers;                         ///< element layers
+    size_t m_numLayers;                                  ///< number of layers for this element
+    double m_lenX;                                       ///< element length in X direction
+    double m_lenY;                                       ///< element length in Y direction
+    double m_thickness;                                  ///< total element thickness
+    std::vector<double> m_GaussZ;                        ///< layer separation z values (scaled to [-1,1])
+    double m_GaussScaling;                               ///< scaling factor due to change of integration intervals
+    double m_Alpha;                                      ///< structural damping
+    bool m_gravity_on;                                   ///< enable/disable gravity calculation
+    ChMatrixNM<double, 24, 1> m_GravForce;               ///< Gravity Force
+    ChMatrixNM<double, 24, 24> m_MassMatrix;             ///< mass matrix
+    ChMatrixNM<double, 24, 24> m_JacobianMatrix;         ///< Jacobian matrix (Kfactor*[K] + Rfactor*[R])
+    ChMatrixNM<double, 8, 3> m_d0;                       ///< initial nodal coordinates
+    ChMatrixNM<double, 8, 8> m_d0d0T;                    ///< matrix m_d0 * m_d0^T
+    ChMatrixNM<double, 8, 3> m_d;                        ///< current nodal coordinates
+    ChMatrixNM<double, 8, 8> m_ddT;                      ///< matrix m_d * m_d^T
+    ChMatrixNM<double, 24, 1> m_d_dt;                    ///< current nodal velocities
+    ChMatrixNM<double, 8, 1> m_strainANS;                ///< ANS strain
+    ChMatrixNM<double, 8, 24> m_strainANS_D;             ///< ANS strain derivatives
+    std::vector<ChMatrixNM<double, 5, 1> > m_alphaEAS;   ///< EAS parameters (5 per layer)
+    std::vector<ChMatrixNM<double, 5, 5> > m_KalphaEAS;  ///< EAS Jacobians (a 5x5 matrix per layer)
 
-    std::vector<ChSharedPtr<ChNodeFEAxyzD> > m_nodes;  ///< element nodes
-
-    double m_thickness;
-    int m_element_number;                        ///< element number (for EAS)
-    double m_Alpha;                              ///< structural damping
-    ChSharedPtr<ChContinuumElastic> m_Material;  ///< elastic material
-
-    ChMatrixNM<double, 24, 24> m_StiffnessMatrix;  ///< stiffness matrix
-    ChMatrixNM<double, 24, 24> m_MassMatrix;       ///< mass matrix
-
-    ChMatrixNM<double, 24, 24> m_stock_jac_EAS;  ///< EAS per elmeent 24
-    ChMatrixNM<double, 24, 24> m_stock_KTE;      ///< Analytical Jacobian
-
-    ChMatrixNM<double, 8, 3> m_d0;  ///< initial nodal coordinates
-
-    ChMatrixNM<double, 24, 1> m_GravForce;  ///< Gravity Force
-
-    // Material Properties for orthotropic per element (14x7) Max #layer is 7
-    ChMatrixNM<double, 98, 1> m_InertFlexVec;    ///< for Laminate shell
-    ChMatrixNM<double, 35, 1> m_StockAlpha_EAS;  ///< StockAlpha(5*7,1): Max #Layer is 7
-    ChMatrixNM<double, 7, 2> m_GaussZRange;      ///< StockAlpha(7,2): Max #Layer is 7 (-1 < GaussZ < 1)
-
-    int m_numLayers;  ///< number of layers for this element
-
-    JacobianType m_flag_HE;  ///< Jacobian evaluation type (analytical or numerical)
-
-    double m_dt;  ///< time step used in calculating structural damping coefficient
-
-    bool m_gravity_on;       ///< flag indicating whether or not gravity is included
-    bool m_air_pressure_on;  ///< flag indicating whether or not air pressure is included
+    static const double m_toleranceEAS;   ///< tolerance for nonlinear EAS solver (on residual)
+    static const int m_maxIterationsEAS;  ///< maximum number of nonlinear EAS iterations
 
     // Interface to ChElementBase base class
     // -------------------------------------
 
-    /// Fills the D vector (column matrix) with the current
-    /// field values at the nodes of the element, with proper ordering.
-    /// If the D vector has not the size of this->GetNdofs(), it will be resized.
-    ///  {x_a y_a z_a Dx_a Dx_a Dx_a x_b y_b z_b Dx_b Dy_b Dz_b}
+    // Fill the D vector (column matrix) with the current field values at the
+    // nodes of the element, with proper ordering.
+    // If the D vector has not the size of this->GetNdofs(), it will be resized.
+    //  {x_a y_a z_a Dx_a Dx_a Dx_a x_b y_b z_b Dx_b Dy_b Dz_b}
     virtual void GetStateBlock(ChMatrixDynamic<>& mD) override;
 
-    /// Sets H as the global stiffness matrix K, scaled  by Kfactor.
-    /// Optionally, also superimposes global damping matrix R, scaled by Rfactor, and global
-    /// mass matrix M multiplied by Mfactor.
+    // Set H as a linear combination of M, K, and R.
+    //   H = Mfactor * [M] + Kfactor * [K] + Rfactor * [R],
+    // where [M] is the mass matrix, [K] is the stiffness matrix, and [R] is the damping matrix.
     virtual void ComputeKRMmatricesGlobal(ChMatrix<>& H,
                                           double Kfactor,
                                           double Rfactor = 0,
                                           double Mfactor = 0) override;
+
+    // Set M as the global mass matrix.
+    virtual void ComputeMmatrixGlobal(ChMatrix<>& M) override;
 
     /// Computes the internal forces.
     /// (E.g. the actual position of nodes is not in relaxed reference position) and set values
@@ -181,7 +253,7 @@ class ChApiFea ChElementShellANCF : public ChElementShell,
     /// Initial setup.
     /// This is used mostly to precompute matrices that do not change during the simulation,
     /// such as the local stiffness of each element (if any), the mass, etc.
-    virtual void SetupInitial() override;
+    virtual void SetupInitial(ChSystem* system) override;
 
     /// Update the state of this element.
     virtual void Update() override;
@@ -209,198 +281,136 @@ class ChApiFea ChElementShellANCF : public ChElementShell,
     // Internal computations
     // ---------------------
 
-    /// Compute the STIFFNESS MATRIX of the element.
-    /// K = integral( .... ),
-    /// Note: in this 'basic' implementation, constant section and
-    /// constant material are assumed
-    void ComputeStiffnessMatrix();
+    /// Compute Jacobians of the internal forces.
+    /// This function calculates a linear combination of the stiffness (K) and damping (R) matrices,
+    ///     J = Kfactor * K + Rfactor * R
+    /// for given coeficients Kfactor and Rfactor.
+    /// This Jacobian will be further combined with the global mass matrix M and included in the global
+    /// stiffness matrix H in the function ComputeKRMmatricesGlobal().
+    void ComputeInternalJacobians(double Kfactor, double Rfactor);
 
-    /// Compute the MASS MATRIX of the element.
+    /// Compute the mass matrix of the element.
     /// Note: in this 'basic' implementation, constant section and
     /// constant material are assumed
     void ComputeMassMatrix();
 
     /// Compute the gravitational forces.
-    void ComputeGravityForce();
+    void ComputeGravityForce(const ChVector<>& g_acc);
 
     // [ANS] Shape function for Assumed Naturals Strain (Interpolation of strain and strainD in a thickness direction)
-    void shapefunction_ANS_BilinearShell(ChMatrixNM<double, 1, 4>& S_ANS, double x, double y);
+    void ShapeFunctionANSbilinearShell(ChMatrixNM<double, 1, 4>& S_ANS, double x, double y);
 
-    // [ANS] Calculation of ANS strain and strainD
-    void AssumedNaturalStrain_BilinearShell(ChMatrixNM<double, 8, 3>& d,
-                                            ChMatrixNM<double, 8, 3>& d0,
-                                            ChMatrixNM<double, 8, 1>& strain_ans,
-                                            ChMatrixNM<double, 8, 24>& strainD_ans);
+    // [ANS] Calculate the ANS strain and strain derivatives.
+    void CalcStrainANSbilinearShell();
 
-    // [EAS] Basis function of M for Enhanced Assumed Strain
+    // [EAS] Basis function of M for Enhanced Assumed Strain.
     void Basis_M(ChMatrixNM<double, 6, 5>& M, double x, double y, double z);
 
-    // [EAS] matrix T0 (inverse and transposed) and detJ0 at center are used for Enhanced Assumed Strains alpha
-    void T0DetJElementCenterForEAS(ChMatrixNM<double, 8, 3>& d0,
-                                   ChMatrixNM<double, 6, 6>& T0,
-                                   double& detJ0C,
-                                   double& theta);
+    // Calculate the determinant of the initial configuration position vector gradient matrix
+    // at the specified point.
+    double Calc_detJ0(double x, double y, double z);
 
-    // Shape functions
-    // ---------------
+    // Same as above, but also return the dense shape function vector derivatives.
+    double Calc_detJ0(double x,
+                      double y,
+                      double z,
+                      ChMatrixNM<double, 1, 8>& Nx,
+                      ChMatrixNM<double, 1, 8>& Ny,
+                      ChMatrixNM<double, 1, 8>& Nz,
+                      ChMatrixNM<double, 1, 3>& Nx_d0,
+                      ChMatrixNM<double, 1, 3>& Ny_d0,
+                      ChMatrixNM<double, 1, 3>& Nz_d0);
 
-    /// Fills the N shape function matrix.
-    /// NOTE! actually N should be a 3row, 24 column sparse matrix,
-    /// as  N = [s1*eye(3) s2*eye(3) s3*eye(3) s4*eye(3)...]; ,
-    /// but to avoid wasting zero and repeated elements, here
-    /// it stores only the s1 through s8 values in a 1 row, 8 columns matrix!
-    void ShapeFunctions(ChMatrix<>& N, double x, double y, double z);
+    // Calculate the current 8x3 matrix of nodal coordinates.
+    void CalcCoordMatrix(ChMatrixNM<double, 8, 3>& d);
 
-    /// Fills the Nx shape function derivative matrix with respect to X.
-    /// NOTE! to avoid wasting zero and repeated elements, here
-    /// it stores only the four values in a 1 row, 8 columns matrix!
-    void ShapeFunctionsDerivativeX(ChMatrix<>& Nx, double x, double y, double z);
-
-    /// Fills the Ny shape function derivative matrix with respect to Y.
-    /// NOTE! to avoid wasting zero and repeated elements, here
-    /// it stores only the four values in a 1 row, 8 columns matrix!
-    void ShapeFunctionsDerivativeY(ChMatrix<>& Ny, double x, double y, double z);
-
-    /// Fills the Nz shape function derivative matrix with respect to Z.
-    /// NOTE! to avoid wasting zero and repeated elements, here
-    /// it stores only the four values in a 1 row, 8 columns matrix!
-    void ShapeFunctionsDerivativeZ(ChMatrix<>& Nz, double x, double y, double z);
+    // Calculate the current 24x1 matrix of nodal coordinate derivatives.
+    void CalcCoordDerivMatrix(ChMatrixNM<double, 24, 1>& dt);
 
     // Helper functions
     // ----------------
 
-    /// Numerial inverse for a 5x5 matrix
+    /// Numerial inverse for a 5x5 matrix.
     static void Inverse55_Numerical(ChMatrixNM<double, 5, 5>& a, int n);
 
-    /// Analytical inverse for a 5x5 matrix
+    /// Analytical inverse for a 5x5 matrix.
     static void Inverse55_Analytical(ChMatrixNM<double, 5, 5>& A, ChMatrixNM<double, 5, 5>& B);
 
-        		//
-			// Functions for ChLoadable interface
-			//  
+    // Functions for ChLoadable interface
+    // ----------------------------------
 
-            /// Gets the number of DOFs affected by this element (position part)
-    virtual int LoadableGet_ndof_x() {return 4*6;}
-        
-        /// Gets the number of DOFs affected by this element (speed part)
-    virtual int LoadableGet_ndof_w() {return 4*6;}
+    /// Gets the number of DOFs affected by this element (position part).
+    virtual int LoadableGet_ndof_x() { return 4 * 6; }
 
-        /// Gets all the DOFs packed in a single vector (position part)
-    virtual void LoadableGetStateBlock_x(int block_offset, ChMatrixDynamic<>& mD) {
-        mD.PasteVector(this->m_nodes[0]->GetPos(), block_offset,  0);
-        mD.PasteVector(this->m_nodes[0]->GetD(),   block_offset+3,  0);
-        mD.PasteVector(this->m_nodes[1]->GetPos(), block_offset+6,  0);
-        mD.PasteVector(this->m_nodes[1]->GetD(),   block_offset+9,  0);
-        mD.PasteVector(this->m_nodes[2]->GetPos(), block_offset+12,  0);
-        mD.PasteVector(this->m_nodes[2]->GetD(),   block_offset+15,  0);
-        mD.PasteVector(this->m_nodes[3]->GetPos(), block_offset+18,  0);
-        mD.PasteVector(this->m_nodes[3]->GetD(),   block_offset+21,  0);
-    }
+    /// Gets the number of DOFs affected by this element (velocity part).
+    virtual int LoadableGet_ndof_w() { return 4 * 6; }
 
-        /// Gets all the DOFs packed in a single vector (speed part)
-    virtual void LoadableGetStateBlock_w(int block_offset, ChMatrixDynamic<>& mD) {
-        mD.PasteVector(this->m_nodes[0]->GetPos_dt(), block_offset,  0);
-        mD.PasteVector(this->m_nodes[0]->GetD_dt(),   block_offset+3,  0);
-        mD.PasteVector(this->m_nodes[1]->GetPos_dt(), block_offset+6,  0);
-        mD.PasteVector(this->m_nodes[1]->GetD_dt(),   block_offset+9,  0);
-        mD.PasteVector(this->m_nodes[2]->GetPos_dt(), block_offset+12,  0);
-        mD.PasteVector(this->m_nodes[2]->GetD_dt(),   block_offset+15,  0);
-        mD.PasteVector(this->m_nodes[3]->GetPos_dt(), block_offset+18,  0);
-        mD.PasteVector(this->m_nodes[3]->GetD_dt(),   block_offset+21,  0);
-    }
+    /// Gets all the DOFs packed in a single vector (position part).
+    virtual void LoadableGetStateBlock_x(int block_offset, ChVectorDynamic<>& mD) override;
 
-        /// Number of coordinates in the interpolated field, ex=3 for a 
-        /// tetrahedron finite element or a cable, = 1 for a thermal problem, etc.
-    virtual int Get_field_ncoords() {return 6;}
-           
-        /// Tell the number of DOFs blocks (ex. =1 for a body, =4 for a tetrahedron, etc.)
-    virtual int GetSubBlocks() {return 4;}
+    /// Gets all the DOFs packed in a single vector (velocity part).
+    virtual void LoadableGetStateBlock_w(int block_offset, ChVectorDynamic<>& mD) override;
 
-        /// Get the offset of the i-th sub-block of DOFs in global vector
-    virtual unsigned int GetSubBlockOffset(int nblock) { return m_nodes[nblock]->NodeGetOffset_w();}
+    /// Number of coordinates in the interpolated field, ex=3 for a
+    /// tetrahedron finite element or a cable, = 1 for a thermal problem, etc.
+    virtual int Get_field_ncoords() { return 6; }
 
-        /// Get the size of the i-th sub-block of DOFs in global vector
-    virtual unsigned int GetSubBlockSize(int nblock) { return 6;}
+    /// Tell the number of DOFs blocks (ex. =1 for a body, =4 for a tetrahedron, etc.)
+    virtual int GetSubBlocks() { return 4; }
 
-        /// Evaluate N'*F , where N is some type of shape function
-        /// evaluated at U,V coordinates of the surface, each ranging in -1..+1
-        /// F is a load, N'*F is the resulting generalized load
-        /// Returns also det[J] with J=[dx/du,..], that might be useful in gauss quadrature.
-    virtual void ComputeNF(const double U,      ///< parametric coordinate in surface
-                    const double V,             ///< parametric coordinate in surface
-                    ChVectorDynamic<>& Qi,      ///< Return result of Q = N'*F  here
-                    double& detJ,               ///< Return det[J] here
-                    const ChVectorDynamic<>& F, ///< Input F vector, size is =n. field coords.
-                    ChVectorDynamic<>* state_x, ///< if != 0, update state (pos. part) to this, then evaluate Q
-                    ChVectorDynamic<>* state_w  ///< if != 0, update state (speed part) to this, then evaluate Q
-                    ) {
-         ChMatrixNM<double, 1,8> N;
-         this->ShapeFunctions(N, U,V,0); // evaluate shape functions (in compressed vector), btw. not dependant on state
-         
-         detJ = GetLengthX()*GetLengthY() / 4.0; // ***TODO***  compute exact determinant of jacobian at U,V; approx. is area/4..
+    /// Get the offset of the i-th sub-block of DOFs in global vector.
+    virtual unsigned int GetSubBlockOffset(int nblock) { return m_nodes[nblock]->NodeGetOffset_w(); }
 
-         ChVector<>tmp;
-         ChVector<>Fv = F.ClipVector(0,0);
-         tmp = N(0)*Fv;
-         Qi.PasteVector(tmp,0,0);
-         tmp = N(1)*Fv;
-         Qi.PasteVector(tmp,3,0);
-         tmp = N(2)*Fv;
-         Qi.PasteVector(tmp,6,0);
-         tmp = N(3)*Fv;
-         Qi.PasteVector(tmp,9,0);  
-         tmp = N(4)*Fv;
-         Qi.PasteVector(tmp,12,0);
-         tmp = N(5)*Fv;
-         Qi.PasteVector(tmp,15,0);
-         tmp = N(6)*Fv;
-         Qi.PasteVector(tmp,18,0);  
-         tmp = N(7)*Fv;
-         Qi.PasteVector(tmp,21,0);  
-    }
+    /// Get the size of the i-th sub-block of DOFs in global vector.
+    virtual unsigned int GetSubBlockSize(int nblock) { return 6; }
 
-        /// Evaluate N'*F , where N is some type of shape function
-        /// evaluated at U,V,W coordinates of the volume, each ranging in -1..+1
-        /// F is a load, N'*F is the resulting generalized load
-        /// Returns also det[J] with J=[dx/du,..], that might be useful in gauss quadrature.
-     virtual void ComputeNF(const double U,   ///< parametric coordinate in volume
-                     const double V,             ///< parametric coordinate in volume
-                     const double W,             ///< parametric coordinate in volume 
-                     ChVectorDynamic<>& Qi,      ///< Return result of N'*F  here, maybe with offset block_offset
-                     double& detJ,               ///< Return det[J] here
-                     const ChVectorDynamic<>& F, ///< Input F vector, size is = n.field coords.
-                     ChVectorDynamic<>* state_x, ///< if != 0, update state (pos. part) to this, then evaluate Q
-                     ChVectorDynamic<>* state_w  ///< if != 0, update state (speed part) to this, then evaluate Q
-                     ) {
-         this->ComputeNF(U,V, Qi, detJ, F, state_x, state_w);
-         detJ /=2.0; // because UV surface interpreted as volume, cut the effect of integration on -1...+1 on normal 
-     }
+    virtual void EvaluateSectionVelNorm(double U, double V, ChVector<>& Result) override;
 
-            /// This is needed so that it can be accessed by ChLoaderVolumeGravity
-            /// Density is mass per unit surface.
-     virtual double GetDensity() {
-                    //***TODO*** check if the following is correct
-                    //***TODO*** performance improvement: loop on layers to accumulate tot_density 
-                    //           could be at element initialization, and tot_density as aux.data in material
-            double tot_density=0; // to acumulate kg/surface per all layers
-            for (int kl = 0; kl < m_numLayers; kl++) {
-                int ij = 14 * kl;
-                double rho = m_InertFlexVec(ij);
-                tot_density += rho;
-            }
-            return tot_density * this->m_thickness;
-     } 
+    /// Get the pointers to the contained ChLcpVariables, appending to the mvars vector.
+    virtual void LoadableGetVariables(std::vector<ChLcpVariables*>& mvars) override;
 
-            /// Gets the normal to the surface at the parametric coordinate U,V. 
-            /// Each coordinate ranging in -1..+1.
-     virtual ChVector<> ComputeNormal(const double U, const double V) {
-                    //***TODO*** compute normal at precise U,V coordinate, 
-                    //           ex.using shape function derivatives.
-         ChVector<> mnorm (Vcross( GetNodeB()->pos - GetNodeA()->pos,
-                                   GetNodeD()->pos - GetNodeA()->pos) );
-         return mnorm;
-     }
+    /// Evaluate N'*F , where N is some type of shape function
+    /// evaluated at U,V coordinates of the surface, each ranging in -1..+1
+    /// F is a load, N'*F is the resulting generalized load
+    /// Returns also det[J] with J=[dx/du,..], that might be useful in gauss quadrature.
+    virtual void ComputeNF(const double U,              ///< parametric coordinate in surface
+                           const double V,              ///< parametric coordinate in surface
+                           ChVectorDynamic<>& Qi,       ///< Return result of Q = N'*F  here
+                           double& detJ,                ///< Return det[J] here
+                           const ChVectorDynamic<>& F,  ///< Input F vector, size is =n. field coords.
+                           ChVectorDynamic<>* state_x,  ///< if != 0, update state (pos. part) to this, then evaluate Q
+                           ChVectorDynamic<>* state_w   ///< if != 0, update state (speed part) to this, then evaluate Q
+                           ) override;
+
+    /// Evaluate N'*F , where N is some type of shape function
+    /// evaluated at U,V,W coordinates of the volume, each ranging in -1..+1
+    /// F is a load, N'*F is the resulting generalized load
+    /// Returns also det[J] with J=[dx/du,..], that might be useful in gauss quadrature.
+    virtual void ComputeNF(const double U,              ///< parametric coordinate in volume
+                           const double V,              ///< parametric coordinate in volume
+                           const double W,              ///< parametric coordinate in volume
+                           ChVectorDynamic<>& Qi,       ///< Return result of N'*F  here, maybe with offset block_offset
+                           double& detJ,                ///< Return det[J] here
+                           const ChVectorDynamic<>& F,  ///< Input F vector, size is = n.field coords.
+                           ChVectorDynamic<>* state_x,  ///< if != 0, update state (pos. part) to this, then evaluate Q
+                           ChVectorDynamic<>* state_w   ///< if != 0, update state (speed part) to this, then evaluate Q
+                           ) override;
+
+    /// This is needed so that it can be accessed by ChLoaderVolumeGravity.
+    /// Density is mass per unit surface.
+    virtual double GetDensity() override;
+
+    /// Gets the normal to the surface at the parametric coordinate U,V.
+    /// Each coordinate ranging in -1..+1.
+    virtual ChVector<> ComputeNormal(const double U, const double V) override;
+
+    friend class MyMass;
+    friend class MyGravity;
+    friend class MyForce;
+    friend class MyJacobian;
 };
+
+/// @} fea_elements
 
 }  // end of namespace fea
 }  // end of namespace chrono

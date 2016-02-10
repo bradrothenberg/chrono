@@ -75,6 +75,15 @@ void ChLinkPointPoint::Update(double mytime, bool update_assets) {
   // ...
 }
 
+ChMatrixNM<double, 3, 1> ChLinkPointPoint::GetC() {
+    ChVector<> res = mnodeA->GetPos() - mnodeB->GetPos();
+    ChMatrixNM<double, 3, 1> C;
+    C(0, 0) = res.x;
+    C(1, 0) = res.y;
+    C(2, 0) = res.z;
+    return C;
+}
+
 //// STATE BOOKKEEPING FUNCTIONS
 
 void ChLinkPointPoint::IntStateGatherReactions(const unsigned int off_L, ChVectorDynamic<>& L) {
@@ -241,6 +250,7 @@ void ChLinkPointPoint::ConstraintsLiFetchSuggestedPositionSolution() {
 //////// FILE I/O
 
 void ChLinkPointPoint::StreamOUT(ChStreamOutBinary& mstream) {
+    /*
 			// class version number
 	mstream.VersionWrite(1);
 
@@ -248,10 +258,12 @@ void ChLinkPointPoint::StreamOUT(ChStreamOutBinary& mstream) {
 	ChPhysicsItem::StreamOUT(mstream);
 
 		// stream out all member data
-	mstream << this->react;
+	mstream < this->react;
+    */
 }
 
 void ChLinkPointPoint::StreamIN(ChStreamInBinary& mstream) {
+    /*
 		// class version number
 	int version = mstream.VersionRead();
 
@@ -260,6 +272,7 @@ void ChLinkPointPoint::StreamIN(ChStreamInBinary& mstream) {
 
 		// deserialize class
 	mstream >> this->react;
+    */
 }
 
 /////////////////////

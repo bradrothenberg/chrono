@@ -38,22 +38,20 @@
 
 
 
-namespace chrono
-{
+namespace chrono {
 
 class ChIndexedNodes; // forward ref
 
-namespace fea
-{
+namespace fea {
 
-
+/// @addtogroup fea_constraints
+/// @{
 
 /// Class for creating a constraint between a xyz FEA node (point)
 /// and a ChBodyFrame (frame) object (that is, it fixes a 3-DOF point
 /// to a 6-DOF frame). 
 /// Nodes are 3-DOF points that are used in point-based 
 /// primitives, such as ChMatterSPH or finite elements.
-
 class ChApiFea ChLinkPointFrame : public ChLinkBase {
 
 						// Chrono simulation of RTTI, needed for serialization
@@ -111,6 +109,8 @@ public:
 				/// To get reaction force, expressed in link coordinate system:
 	virtual ChVector<> Get_react_force() {return GetReactionOnBody();}
 
+    // Get constraint violations
+    ChMatrixNM<double, 3, 1> GetC();
 
 	 		//
 			// STATE FUNCTIONS
@@ -215,9 +215,7 @@ public:
 
 };
 
-
-
-
+/// @} fea_constraints
 
 } // END_OF_NAMESPACE____
 } // END_OF_NAMESPACE____

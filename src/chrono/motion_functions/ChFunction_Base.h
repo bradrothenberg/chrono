@@ -54,6 +54,9 @@ namespace chrono {
     return mOptVars;      \
     }
 
+/// @addtogroup chrono_functions
+/// @{
+
 /// THE INTERFACE BASE CLASS FOR SCALAR FUNCTIONS OF TYPE:
 ///
 ///  y= f(x)
@@ -67,7 +70,6 @@ namespace chrono {
 ///  This base class just represent a constant function of
 /// the type y= C.  Inherited classes must override at least the
 /// Get_y() method, in order to represent more complex functions.
-
 class ChApi ChFunction : public ChShared {
     // Chrono simulation of RTTI, needed for serialization
     CH_RTTI(ChFunction_base, ChShared);
@@ -181,20 +183,6 @@ class ChApi ChFunction : public ChShared {
     /// Method to allow deserialization of transient data from archives.
     virtual void ArchiveIN(ChArchiveIn& marchive);
 
-    /// Method to allow serialization of transient data in ascii,
-    /// as a readable item, for example   "chrono::GetLog() << myobject;"
-    //***OBSOLETE***
-    virtual void StreamOUT(ChStreamOutAscii& mstream);
-
-    /// Method to allow deserializing a persistent binary archive (ex: a file)
-    /// into transient data.
-    //***OBSOLETE***
-    virtual void StreamIN(ChStreamInBinary& mstream);
-
-    /// Method to allow serializing transient data into a persistent
-    /// binary archive (ex: a file).
-    //***OBSOLETE***
-    virtual void StreamOUT(ChStreamOutBinary& mstream);
 
     /// Plot function in graph space of the ChFile_ps postscript file
     /// where zoom factor, centering, colour, thickness etc. are already defined.
@@ -207,6 +195,8 @@ class ChApi ChFunction : public ChShared {
     /// The function is 'sampled' for nsteps times, from xmin to xmax.
     virtual int FileAsciiPairsSave(ChStreamOutAscii& m_file, double xmin = 0, double xmax = 1, int msamples = 200);
 };
+
+/// @} chrono_functions
 
 }  // END_OF_NAMESPACE____
 

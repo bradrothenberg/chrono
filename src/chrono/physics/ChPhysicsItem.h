@@ -50,6 +50,8 @@ class ChSystem;
 class ChApi ChPhysicsItem : public ChObj {
     CH_RTTI(ChPhysicsItem, ChObj);
 
+    friend class ChSystem;
+
   protected:
     //
     // DATA
@@ -74,8 +76,14 @@ class ChApi ChPhysicsItem : public ChObj {
         this->offset_L = 0;
     };
 
-    virtual ~ChPhysicsItem(){};
+    virtual ~ChPhysicsItem(){
+        SetSystem(0); // this also might remove collision model from system
+    };
+
     virtual void Copy(ChPhysicsItem* source);
+
+  private:
+    virtual void SetupInitial() {}
 
   public:
     //
@@ -85,8 +93,21 @@ class ChApi ChPhysicsItem : public ChObj {
     /// Get the pointer to the parent ChSystem()
     ChSystem* GetSystem() const { return system; }
 
-    /// Set the pointer to the parent ChSystem()
-    virtual void SetSystem(ChSystem* m_system) { system = m_system; }
+    /// Set the pointer to the parent ChSystem() and 
+    /// also add to new collision system / remove from old coll.system
+    virtual void SetSystem(ChSystem* m_system) { 
+        if (system == m_system) // shortcut if no change
+            return;
+        if (system) {
+            if (this->GetCollide())
+                this->RemoveCollisionModelsFromSystem();
+        }
+        system = m_system; // set here
+        if (system) {
+            if (this->GetCollide())
+                this->AddCollisionModelsToSystem();
+        }
+    }
 
     /// Add an optional asset (it can be used to define visualization shapes, es ChSphereShape,
     /// or textures, or custom attached properties that the user can define by
@@ -468,13 +489,6 @@ class ChApi ChPhysicsItem : public ChObj {
     /// Method to allow deserialization of transient data from archives.
     virtual void ArchiveIN(ChArchiveIn& marchive);
 
-    /// Method to allow deserializing a persistent binary archive (ex: a file)
-    /// into transient data.
-    virtual void StreamIN(ChStreamInBinary& mstream);
-
-    /// Method to allow serializing transient data into a persistent
-    /// binary archive (ex: a file).
-    virtual void StreamOUT(ChStreamOutBinary& mstream);
 };
 
 }  // END_OF_NAMESPACE____

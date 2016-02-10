@@ -1,11 +1,14 @@
 #include "ChCSR3Matrix.h"
 #include <algorithm>
+#include <mkl.h>
 
 namespace chrono {
 
-	ChCSR3Matrix::ChCSR3Matrix(int insrow, int inscol, int nonzeros):
-		max_shifts(std::numeric_limits<int>::max()),
+	ChCSR3Matrix::ChCSR3Matrix(int insrow, int inscol, int nonzeros) :
+		reallocation_occurred(false),
 		array_alignment(64),
+		isCompressed(false),
+		max_shifts(std::numeric_limits<int>::max()),
 		rowIndex_lock(false),
 		colIndex_lock(false),
 		rowIndex_lock_broken(false),
@@ -13,39 +16,30 @@ namespace chrono {
 		symmetry(NO_SYMMETRY)
 	{
 		assert(insrow > 0 && inscol > 0 && nonzeros >= 0);
-		rowIndex_lock = false;
-		mat_rows = insrow;
-		mat_cols = inscol;
-		reallocation_occurred = false;
-		isCompressed = false;
+
+		rows = insrow;
+		columns = inscol;
 		
 
-		if (nonzeros == 0)
-			nonzeros = static_cast<int>( static_cast<double>(mat_rows*mat_cols)*SPM_DEF_FULLNESS );
+		if (nonzeros == 0) nonzeros = static_cast<int>(rows*columns*SPM_DEF_FULLNESS);
 
-		colIndex_occupancy = std::max(mat_rows, static_cast<int>(nonzeros));
-		rowIndex_occupancy = mat_rows + 1;
+		colIndex_occupancy = std::max(rows, nonzeros);
+		rowIndex_occupancy = rows + 1;
 		
-		if (TESTING_CSR3){
-			mkl_peak_mem_usage(MKL_PEAK_MEM_ENABLE);
-			mkl_peak_mem_CSR3 = 0;
-			mkl_peak_mem_usage(MKL_PEAK_MEM_RESET);
-		}
-
+		
 		values = static_cast<double*>(mkl_malloc(colIndex_occupancy*sizeof(double), array_alignment));
 		colIndex = static_cast<int*>(mkl_malloc(colIndex_occupancy*sizeof(int), array_alignment));
 		rowIndex = static_cast<int*>(mkl_malloc(rowIndex_occupancy*sizeof(int), array_alignment));
 
 		initialize();
 
-		if (TESTING_CSR3){
-			mkl_peak_mem_CSR3 = std::max(mkl_peak_mem_CSR3, mkl_peak_mem_usage(MKL_PEAK_MEM_RESET));
-		}
 	}
 
 	ChCSR3Matrix::ChCSR3Matrix(int insrow, int inscol, int* nonzeros_vector) :
-		max_shifts(std::numeric_limits<int>::max()),
+		reallocation_occurred(false),
 		array_alignment(64),
+		isCompressed(false),
+		max_shifts(std::numeric_limits<int>::max()),
 		rowIndex_lock(false),
 		colIndex_lock(false),
 		rowIndex_lock_broken(false),
@@ -53,35 +47,25 @@ namespace chrono {
 		symmetry(NO_SYMMETRY)
 	{
 		assert(insrow > 0 && inscol > 0);
-		rowIndex_lock = true;
-		mat_rows = insrow;
-		mat_cols = inscol;
-		reallocation_occurred = false;
-		isCompressed = false;
+
+		rows = insrow;
+		columns = inscol;
 
 		colIndex_occupancy = 0;
-		for (int row_sel = 0; row_sel < mat_rows; row_sel++)
+		for (int row_sel = 0; row_sel < rows; row_sel++)
 		{
 			colIndex_occupancy += nonzeros_vector[row_sel];
 		}
 
-		rowIndex_occupancy = mat_rows + 1;
+		rowIndex_occupancy = rows + 1;
 
-		if (TESTING_CSR3){
-			mkl_peak_mem_usage(MKL_PEAK_MEM_ENABLE);
-			mkl_peak_mem_CSR3 = 0;
-			mkl_peak_mem_usage(MKL_PEAK_MEM_RESET);
-		}
-
+		
 		values = static_cast<double*>(mkl_malloc(colIndex_occupancy*sizeof(double), array_alignment));
 		colIndex = static_cast<int*>(mkl_malloc(colIndex_occupancy*sizeof(int), array_alignment));
 		rowIndex = static_cast<int*>(mkl_malloc(rowIndex_occupancy*sizeof(int), array_alignment));
 
 		initialize(nonzeros_vector);
 
-		if (TESTING_CSR3){
-			mkl_peak_mem_CSR3 = std::max(mkl_peak_mem_CSR3, mkl_peak_mem_usage(MKL_PEAK_MEM_RESET));
-		}
 	}
 
 
@@ -96,7 +80,7 @@ namespace chrono {
 
 	void ChCSR3Matrix::SetElement(int insrow, int inscol, double insval, bool overwrite)
 	{
-		assert(insrow < mat_rows && inscol < mat_cols);
+		assert(insrow < rows && inscol < columns);
 		assert(insrow >= 0 && inscol >= 0);
 
 		if ((symmetry == UPPER_SYMMETRY_POSDEF || symmetry == UPPER_SYMMETRY_INDEF) && insrow<inscol ||
@@ -144,9 +128,16 @@ namespace chrono {
 	void ChCSR3Matrix::insert(int insrow, int inscol, double insval, int& col_sel)
 	{
 		colIndex_lock_broken = true;
-		int col_shift = 1;
-		int col_sel_empty = col_sel;
+		int col_shift = 1; // an offset from the current position that points to the empty location found
+		int col_sel_empty = col_sel; // the location in which the new element will be put (if a space will be found it will be different from col_sel)
 
+		/****************** STEP 1 ******************/
+
+		// "only-one-uninitialized-cell" row check: it starts from the row following/preceding the one you are in;
+		// this is because if you are inserting in your own row there is no interest to check for "only-one-uninitialized-cell" row 
+		int row_sel_bw = insrow - 1;
+		int row_sel_fw = insrow + 1;
+			
 		// STEP 1: find an empty space in the array so part of the array can be shifted in order to give space to the new element
 		// There are 3 While cycles; they all search for the NEAREST empty space (i.e. in which the colIndex array has a "-1"); no rearrangement is done at this stage.
 		// 1st While: it scans both Backward and Forward, but only until at least ONE of the limits of the colIndex is reached;
@@ -154,16 +145,15 @@ namespace chrono {
 		// 3rd While: it scans only Forward, but only if the 1st cycle did not find anything AND the end of colIndex is not reached yet;
 		// These 3 cycles can be made one introducing a check on the limits of the array (in the IFs in the first While), but
 		// this will introduce another 2 more condition check that have to be done at every iteration also if they'll be hit very rarely.
-		while (col_shift < max_shifts && col_sel - col_shift>-1 && col_sel + col_shift < rowIndex[mat_rows])
+		while (col_shift < max_shifts && col_sel - col_shift>-1 && col_sel + col_shift < rowIndex[rows]) // 1st While
 		{
 			if (colIndex[col_sel - col_shift] == -1 && !rowIndex_lock) // backward check
 			{
 				// This part is very specific: it avoids to write to another row that has only one element that it's uninitialized;
-				int row_sel = 0;
-				for (row_sel = insrow; col_sel - col_shift < rowIndex[row_sel] && row_sel >= 0; row_sel--) {}
-				if (rowIndex[row_sel] == col_sel - col_shift)
+				for (; rowIndex[row_sel_bw] > col_sel - col_shift && row_sel_bw >= 0; row_sel_bw--) {}
+				if (rowIndex[row_sel_bw] == col_sel - col_shift)
 				{
-					if (row_sel == 0)
+					if (row_sel_bw == 0)
 						break;
 					col_shift++;
 					continue;
@@ -176,11 +166,10 @@ namespace chrono {
 			if (colIndex[col_sel + col_shift] == -1) // forward check
 			{
 				// This part is very specific: it avoids to write to another row that has only one element that it's uninitialized;
-				int row_sel = 0;
-				for (row_sel = insrow; col_sel + col_shift > rowIndex[row_sel] && row_sel <= mat_rows; row_sel++) {}
-				if (rowIndex[row_sel] == col_sel + col_shift)
+				for (; rowIndex[row_sel_fw] < col_sel + col_shift && row_sel_fw <= rows; row_sel_fw++) {}
+				if (rowIndex[row_sel_fw] == col_sel + col_shift)
 				{
-					if (row_sel == mat_rows)
+					if (row_sel_fw == rows)
 						break;
 					col_shift++;
 					continue;
@@ -189,19 +178,21 @@ namespace chrono {
 				col_sel_empty = col_sel + col_shift;
 				break;
 			}
-			col_shift++;
-		}
 
-		while (!rowIndex_lock && col_sel_empty == col_sel && col_shift < max_shifts && col_sel - col_shift>-1 ) // scan the last elements not already checked to the left
+			col_shift++;
+		} // end 1st While
+		
+
+		// 2nd While: scan the last elements not already checked to the left (backward)
+		while (!rowIndex_lock && col_sel_empty == col_sel && col_shift < max_shifts && col_sel - col_shift>-1)
 		{
 			if (colIndex[col_sel - col_shift] == -1) // backward check
 			{
 				// This part is very specific: it avoids to write to another row that has only one element that it's uninitialized;
-				int row_sel = 0;
-				for (row_sel = insrow; col_sel - col_shift < rowIndex[row_sel] && row_sel >= 0; row_sel--) {}
-				if (rowIndex[row_sel] == col_sel - col_shift)
+				for (; rowIndex[row_sel_bw] > col_sel - col_shift && row_sel_bw >= 0; row_sel_bw--) {}
+				if (rowIndex[row_sel_bw] == col_sel - col_shift)
 				{
-					if (row_sel == 0)
+					if (row_sel_bw == 0)
 						break;
 					col_shift++;
 					continue;
@@ -212,17 +203,18 @@ namespace chrono {
 			}
 			col_shift++;
 		}
+		
 
-		while (col_sel_empty == col_sel && col_shift < max_shifts && col_sel + col_shift < rowIndex[mat_rows]) // scan the last elements not already checked to the right
+		// 3rd While: scan the last elements not already checked to the right (forward)
+		while (col_sel_empty == col_sel && col_shift < max_shifts && col_sel + col_shift < rowIndex[rows])
 		{
 			if (colIndex[col_sel + col_shift] == -1) // forward check
 			{
 				// This part is very specific: it avoids to write to another row that has only one element that it's uninitialized;
-				int row_sel = 0;
-				for (row_sel = insrow; col_sel + col_shift > rowIndex[row_sel] && row_sel <= mat_rows; row_sel++) {}
-				if (rowIndex[row_sel] == col_sel + col_shift)
+				for (; rowIndex[row_sel_fw] < col_sel + col_shift && row_sel_fw <= rows; row_sel_fw++) {}
+				if (rowIndex[row_sel_fw] == col_sel + col_shift)
 				{
-					if (row_sel == mat_rows)
+					if (row_sel_fw == rows)
 						break;
 					col_shift++;
 					continue;
@@ -233,9 +225,10 @@ namespace chrono {
 			}
 			col_shift++;
 		}
+		
 		// If an uninitialized location is found "col_sel_empty" should point at it, so it would be different from "col_sel".
 
-
+		/****************** STEP 2 ******************/
 		
 		// STEP 2: shift the array to make space for the new element; eventually update "col_sel"
 		// case 1: the uninitialized location is found forward;
@@ -243,7 +236,7 @@ namespace chrono {
 		// case 3: the location is not found in the neighborhood ("max_shifts") of the "col_sel" cell; a reallocation is needed.
 
 		// case 1
-		if (col_sel_empty > col_sel && col_sel + col_shift < rowIndex[mat_rows] && col_shift < max_shifts)
+		if (col_sel_empty > col_sel && col_sel + col_shift < rowIndex[rows] && col_shift < max_shifts)
 		{
 			for (int col_sel_temp = col_sel_empty; col_sel_temp > col_sel; col_sel_temp--)
 			{
@@ -277,7 +270,7 @@ namespace chrono {
 		{
 			rowIndex_lock_broken = true;
 
-			if (colIndex_occupancy >= rowIndex[mat_rows]) // that happens when a Compress() or a Reset() is not followed by a Trim()
+			if (colIndex_occupancy > GetColIndexLength()) // that happens when a Compress() or a Reset() is not followed by a Trim()
 			{
 				copy(values, colIndex, false, insrow, col_sel, 1);
 			}
@@ -287,8 +280,7 @@ namespace chrono {
 				int storage_augmentation = 4;
 				colIndex_occupancy = colIndex_occupancy + storage_augmentation;
 
-				if (TESTING_CSR3) mkl_peak_mem_usage(MKL_PEAK_MEM_RESET);
-
+				
 				if (ALIGNMENT_REQUIRED)
 				{
 					double* new_values = static_cast<double*>(mkl_malloc(colIndex_occupancy*sizeof(double), array_alignment));
@@ -308,7 +300,6 @@ namespace chrono {
 					copy(values, colIndex, false, insrow, col_sel, storage_augmentation);
 				}
 
-				if (TESTING_CSR3) mkl_peak_mem_CSR3 = std::max(mkl_peak_mem_CSR3, mkl_peak_mem_usage(MKL_PEAK_MEM_RESET));
 				
 			} // end effective reallocation
 
@@ -328,9 +319,9 @@ namespace chrono {
 				colIndex_length = colIndex_occupancy;
 
 			// rowIndex is initialized with equally spaced indexes
-			for (int row_sel = 0; row_sel <= mat_rows; row_sel++)
+			for (int row_sel = 0; row_sel <= rows; row_sel++)
 			{
-				rowIndex[row_sel] = static_cast<int>(ceil(static_cast<double>(row_sel)* (static_cast<double>(colIndex_length)+1.0) / (static_cast<double>(mat_rows) +1.0) ));
+				rowIndex[row_sel] = static_cast<int>(ceil(static_cast<double>(row_sel)* (static_cast<double>(colIndex_length)+1.0) / (static_cast<double>(rows) +1.0) ));
 			}
 			isCompressed = false;
 		}
@@ -347,7 +338,7 @@ namespace chrono {
 	{
 		// rowIndex is initialized based on nonzeros_vector specification
 		rowIndex[0] = 0;
-		for (int row_sel = 0; row_sel < mat_rows; row_sel++) // rowIndex is initialized with equally spaced indexes
+		for (int row_sel = 0; row_sel < rows; row_sel++) // rowIndex is initialized with equally spaced indexes
 		{
 			rowIndex[row_sel + 1] = rowIndex[row_sel] + nonzeros_vector[row_sel];
 		}
@@ -360,7 +351,7 @@ namespace chrono {
 	{
 		if (colIndex_lock && !colIndex_lock_broken)
 		{
-			for (int col_sel = 0; col_sel < rowIndex[mat_rows]; col_sel++)
+			for (int col_sel = 0; col_sel < GetColIndexLength(); col_sel++)
 			{
 				values[col_sel] = 0;
 			}
@@ -368,7 +359,7 @@ namespace chrono {
 		else
 		{
 			// colIndex is initialized with -1; it means that the cell has been stored but contains an uninitialized value
-			for (int col_sel = 0; col_sel < rowIndex[mat_rows]; col_sel++)
+			for (int col_sel = 0; col_sel < GetColIndexLength(); col_sel++)
 			{
 				colIndex[col_sel] = -1;
 			}
@@ -413,7 +404,7 @@ namespace chrono {
 		// The destination array	|| | | | | || | | | ||  ||  |  ||  |  |  ||  | | | | |		<-- 4 more allocated spaces to allow expansion
 		int remaining_shifts = shifts;
 		int col_sel_destination;
-		for (col_sel_destination = rowIndex[mat_rows] + shifts - 1; col_sel_destination - remaining_shifts >= rowIndex[insrow + 1]; col_sel_destination--)
+		for (col_sel_destination = rowIndex[rows] + shifts - 1; col_sel_destination - remaining_shifts >= rowIndex[insrow + 1]; col_sel_destination--)
 		{
 			values_destination[col_sel_destination] = values_source[col_sel_destination - remaining_shifts];
 			colIndex_destination[col_sel_destination] = colIndex_source[col_sel_destination - remaining_shifts];
@@ -450,7 +441,7 @@ namespace chrono {
 		if (shifts > 0)
 		{
 			int row_sel = insrow + 1;
-			while (row_sel <= mat_rows)
+			while (row_sel <= rows)
 			{
 				rowIndex[row_sel] += shifts;
 				row_sel++;
@@ -462,7 +453,7 @@ namespace chrono {
 
 	void ChCSR3Matrix::GetNonZerosDistribution(int* nonzeros_vector) const
 	{
-		for (int row_sel = 0; row_sel < mat_rows; row_sel++)
+		for (int row_sel = 0; row_sel < rows; row_sel++)
 			nonzeros_vector[row_sel] = rowIndex[row_sel + 1] - rowIndex[row_sel];
 	}
 
@@ -480,8 +471,6 @@ namespace chrono {
 
 	void ChCSR3Matrix::GetMemoryInfo()
 	{
-		if (TESTING_CSR3)
-			printf("\nPeak memory in CSR3 class (bytes): %lld", mkl_peak_mem_CSR3);
 		printf("\nMemory allocated: %.2f MB", static_cast<double>( (2*colIndex_occupancy*sizeof(double) + rowIndex_occupancy* sizeof(int)) )/1000000  );
 	}
 
@@ -496,7 +485,7 @@ namespace chrono {
 	int ChCSR3Matrix::VerifyMatrix()
 	{
 		bool uninitialized_elements_found = false;
-		for (int row_sel = 0; row_sel < mat_rows; row_sel++)
+		for (int row_sel = 0; row_sel < rows; row_sel++)
 		{
 			// Check ascending order of rowIndex
 			if (rowIndex[row_sel] >= rowIndex[row_sel + 1])
@@ -540,16 +529,16 @@ namespace chrono {
 			assert(0);
 
 		int row_sel = -1;
-		for (row_sel = 0; row_sel<=mat_rows; row_sel++)
+		for (row_sel = 0; row_sel<=rows; row_sel++)
 			ia_file >> rowIndex[row_sel];
 		row_sel--;
 
-		Reset(mat_rows, mat_cols);
+		Reset(rows, columns);
 		
 		ia_file.seekg(0);
 
 		row_sel = -1;
-		for (row_sel = 0; row_sel <= mat_rows; row_sel++)
+		for (row_sel = 0; row_sel <= rows; row_sel++)
 			ia_file >> rowIndex[row_sel];
 		row_sel--;
 
@@ -571,7 +560,7 @@ namespace chrono {
 
 	double ChCSR3Matrix::GetElement(int row, int col)
 	{
-		assert(row < mat_rows && col < mat_cols);
+		assert(row < rows && col < columns);
 		assert(row >= 0 && col >= 0);
 		for (int col_sel = rowIndex[row]; col_sel < rowIndex[row + 1]; col_sel++)
 		{
@@ -585,7 +574,7 @@ namespace chrono {
 
 	double& ChCSR3Matrix::Element(int row, int col)
 	{
-		assert(row < mat_rows && col < mat_cols);
+		assert(row < rows && col < columns);
 		assert(row >= 0 && col >= 0);
 
 		// It scans the array SINCE it finds the place in which the element should be;
@@ -639,7 +628,7 @@ namespace chrono {
 			rowIndex_lock_broken = true;
 
 		// we can't preserve data if any row will be cut
-		if (nrows < mat_rows)
+		if (nrows < rows)
 			return false;
 
 		// STEP1: figure out the new storage dimension
@@ -652,30 +641,29 @@ namespace chrono {
 
 		if (nonzeros == 0) // case LeaveStoreAsIs
 		{
-			if (mat_rows == new_mat_rows) // case LeaveStoreAsIs&row==
+			if (rows == new_mat_rows) // case LeaveStoreAsIs&row==
 				return true;
 
-			if (new_mat_rows > mat_rows) // case LeaveStoreAsIs&row++
-				new_colIndex_occupancy = colIndex_occupancy + (new_mat_rows - mat_rows)*storage_augmentation_foreachrow;
+			if (new_mat_rows > rows) // case LeaveStoreAsIs&row++
+				new_colIndex_occupancy = colIndex_occupancy + (new_mat_rows - rows)*storage_augmentation_foreachrow;
 		}
 		else // case SetStorage
 		{
 			new_colIndex_occupancy = nonzeros;
 
 			// if the new number of rows require more space than the one imposed by the user
-			if (new_mat_rows > mat_rows && new_colIndex_occupancy < colIndex_occupancy + (new_mat_rows - mat_rows) * 1)
+			if (new_mat_rows > rows && new_colIndex_occupancy < colIndex_occupancy + (new_mat_rows - rows) * 1)
 				return false;
 		}
 
 
 		// if the nonzeros size requested would led to data losses then stop and return FALSE
-		if (new_colIndex_occupancy < rowIndex[mat_rows] - 1) 
+		if (new_colIndex_occupancy < rowIndex[rows] - 1) 
 			return false;
 
 
 		// STEP 2: find the space for the new storage and paste the arrays in their new location
 
-		if (TESTING_CSR3) mkl_peak_mem_usage(MKL_PEAK_MEM_RESET);
 		
 		// if new the size exceeds the current storage size a reallocation is required
 		if (new_colIndex_occupancy > colIndex_occupancy)
@@ -708,7 +696,7 @@ namespace chrono {
 
 		// STEP 3: expand the arrays. Update rowIndex
 		// case row++
-		if (new_mat_rows > mat_rows)
+		if (new_mat_rows > rows)
 		{
 			if (new_mat_rows + 1 > rowIndex_occupancy)
 			{
@@ -716,7 +704,7 @@ namespace chrono {
 				{
 					int* new_rowIndex = static_cast<int*>(mkl_malloc((new_mat_rows + 1)*sizeof(int), array_alignment));
 					reallocation_occurred = true;
-					for (int row_sel = 0; row_sel <= mat_rows; row_sel++)
+					for (int row_sel = 0; row_sel <= rows; row_sel++)
 						new_rowIndex[row_sel] = rowIndex[row_sel];
 					if (new_rowIndex != rowIndex) mkl_free(rowIndex);
 					rowIndex = new_rowIndex;
@@ -732,32 +720,31 @@ namespace chrono {
 
 			
 			// the newly acquired space is equally distributed to the new rows
-			double effective_augmentation_foreachrow = (static_cast<double>(new_colIndex_occupancy) - static_cast<double>(rowIndex[mat_rows]) ) / static_cast<double>(new_mat_rows - mat_rows);
+			double effective_augmentation_foreachrow = (static_cast<double>(new_colIndex_occupancy) - static_cast<double>(rowIndex[rows]) ) / static_cast<double>(new_mat_rows - rows);
 
-			for (int row_sel = 1; row_sel <= new_mat_rows - mat_rows; row_sel++)
+			for (int row_sel = 1; row_sel <= new_mat_rows - rows; row_sel++)
 			{
-				rowIndex[mat_rows+row_sel] = rowIndex[mat_rows] + static_cast<int>(ceil(static_cast<double>(row_sel) *effective_augmentation_foreachrow));
+				rowIndex[rows+row_sel] = rowIndex[rows] + static_cast<int>(ceil(static_cast<double>(row_sel) *effective_augmentation_foreachrow));
 			}
 
 		}
 		// case row==
-		else if (mat_rows == new_mat_rows)
+		else if (rows == new_mat_rows)
 			rowIndex[new_mat_rows] = new_colIndex_occupancy+1;
 
 
-		if (TESTING_CSR3) mkl_peak_mem_CSR3 = std::max(mkl_peak_mem_CSR3, mkl_peak_mem_usage(MKL_PEAK_MEM_RESET));
-
+		
 
 		// Update colInde. Set the new elements in colIndex as "not-initialized" i.e. "-1"
-		for (int col_sel = rowIndex[mat_rows]; col_sel < rowIndex[new_mat_rows]; col_sel++)
+		for (int col_sel = rowIndex[rows]; col_sel < rowIndex[new_mat_rows]; col_sel++)
 		{
 			colIndex[col_sel] = -1;
 		}
 
 
 		colIndex_occupancy = new_colIndex_occupancy;
-		mat_rows = new_mat_rows;
-		mat_cols = new_mat_cols;
+		rows = new_mat_rows;
+		columns = new_mat_cols;
 		rowIndex_lock_broken = true;
 		colIndex_lock_broken = true;
 		isCompressed = false;
@@ -773,16 +760,13 @@ namespace chrono {
 	{
 		assert(nrows > 0 && ncols > 0 && nonzeros >= 0);
 
-		if (TESTING_CSR3){
-			mkl_peak_mem_usage(MKL_PEAK_MEM_RESET);
-		}
-
+		
 		if (nonzeros == 0)
-			nonzeros = rowIndex[mat_rows] - 1;
+			nonzeros = GetColIndexLength();
 
 		nonzeros = std::max(nrows, nonzeros);
 
-		if (nrows > mat_rows)
+		if (nrows > rows)
 		{
 			mkl_free(rowIndex);
 			rowIndex = static_cast<int*>(mkl_malloc((nrows + 1)*sizeof(int), array_alignment));
@@ -794,7 +778,7 @@ namespace chrono {
 		}
 
 
-		if (nonzeros > rowIndex[mat_rows])
+		if (nonzeros > rowIndex[rows])
 		{
 			mkl_free(values);
 			mkl_free(colIndex);
@@ -807,18 +791,15 @@ namespace chrono {
 			colIndex_lock_broken = true;
 		}
 
-		if (TESTING_CSR3){
-			mkl_peak_mem_CSR3 = std::max(mkl_peak_mem_CSR3, mkl_peak_mem_usage(MKL_PEAK_MEM_RESET));
-		}
-
-		if (!rowIndex_lock_broken && !colIndex_lock_broken && mat_rows == nrows && mat_cols == ncols && nonzeros == rowIndex[mat_rows] - 1)
+		
+		if (!rowIndex_lock_broken && !colIndex_lock_broken && rows == nrows && columns == ncols && nonzeros == GetColIndexLength())
 		{
 			initialize_ValuesColIndex();
 		}
 		else
 		{
-			mat_rows = nrows;
-			mat_cols = ncols;
+			rows = nrows;
+			columns = ncols;
 
 			initialize(nonzeros);
 		}
@@ -830,7 +811,7 @@ namespace chrono {
 		int col_sel_new = 0;
 		int row_sel = 0;
 
-		for (int col_sel = 0; col_sel < rowIndex[mat_rows]; col_sel++)
+		for (int col_sel = 0; col_sel < rowIndex[rows]; col_sel++)
 		{
 			// if an element is not initialized it would simply skip its copy
 			if (colIndex[col_sel]>-1)
@@ -845,7 +826,7 @@ namespace chrono {
 			{
 				if (colIndex[col_sel] == -1)
 				{
-					colIndex[col_sel_new] = std::min(row_sel, mat_cols);
+					colIndex[col_sel_new] = std::min(row_sel, columns);
 					values[col_sel_new] = 0;
 					col_sel_new++;
 				}
@@ -864,7 +845,7 @@ namespace chrono {
 	{
 		if (pruning_threshold == 0)
 		{
-			for (int col_sel = 0; col_sel < rowIndex[mat_rows]; col_sel++)
+			for (int col_sel = 0; col_sel < rowIndex[rows]; col_sel++)
 			{
 				if (values[col_sel] == 0)
 					colIndex[col_sel] = -1;
@@ -872,7 +853,7 @@ namespace chrono {
 		}
 		else
 		{
-			for (int col_sel = 0; col_sel < rowIndex[mat_rows]; col_sel++)
+			for (int col_sel = 0; col_sel < rowIndex[rows]; col_sel++)
 			{
 				if (std::abs(values[col_sel]) < pruning_threshold)
 					colIndex[col_sel] = -1;
@@ -883,22 +864,22 @@ namespace chrono {
 
 	void ChCSR3Matrix::Trim()
 	{
-		if (colIndex_occupancy > rowIndex[mat_rows])
+		if (colIndex_occupancy > rowIndex[rows])
 		{
 			double* old_values = values;
 			int* old_colIndex = colIndex;
-			values = static_cast<double*>(mkl_realloc(values, rowIndex[mat_rows] * sizeof(double)));
-			colIndex = static_cast<int*>(mkl_realloc(colIndex, rowIndex[mat_rows] * sizeof(int)));
+			values = static_cast<double*>(mkl_realloc(values, rowIndex[rows] * sizeof(double)));
+			colIndex = static_cast<int*>(mkl_realloc(colIndex, rowIndex[rows] * sizeof(int)));
 			reallocation_occurred = true;
-			colIndex_occupancy = rowIndex[mat_rows];
+			colIndex_occupancy = rowIndex[rows];
 			assert(old_values == values && old_colIndex);
 		}
 
-		if (rowIndex_occupancy>mat_rows + 1)
+		if (rowIndex_occupancy>rows + 1)
 		{
 			int* old_rowIndex = rowIndex;
-			rowIndex = static_cast<int*>(mkl_realloc(rowIndex, (mat_rows + 1) * sizeof(int)));
-			rowIndex_occupancy = mat_rows + 1;
+			rowIndex = static_cast<int*>(mkl_realloc(rowIndex, (rows + 1) * sizeof(int)));
+			rowIndex_occupancy = rows + 1;
 			reallocation_occurred = true;
 			assert(old_rowIndex == rowIndex);
 		}

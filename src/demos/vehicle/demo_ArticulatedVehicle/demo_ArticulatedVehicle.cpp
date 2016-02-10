@@ -34,7 +34,6 @@
 #include "chrono_vehicle/ChVehicleModelData.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
 
-#include "ModelDefs.h"
 #include "articulated/Articulated_Vehicle.h"
 #include "articulated/Articulated_Trailer.h"
 #include "generic/Generic_SimplePowertrain.h"
@@ -44,8 +43,8 @@
 // If Irrlicht support is available...
 #ifdef CHRONO_IRRLICHT
 // ...include additional headers
-#include "chrono_irrlicht/ChIrrApp.h"
 #include "chrono_vehicle/driver/ChIrrGuiDriver.h"
+#include "chrono_vehicle/wheeled_vehicle/utils/ChWheeledVehicleIrrApp.h"
 
 // ...and specify whether the demo should actually use Irrlicht
 #define USE_IRRLICHT
@@ -55,6 +54,7 @@
 //#define DEBUG_LOG
 
 using namespace chrono;
+using namespace chrono::vehicle;
 
 // =============================================================================
 
@@ -146,7 +146,7 @@ int main(int argc, char* argv[]) {
     tr_tire_rear_right.Initialize(trailer.GetWheelBody(REAR_RIGHT));
 
 #ifdef USE_IRRLICHT
-    ChVehicleIrrApp app(vehicle, powertrain, L"Articulated Vehicle Demo");
+    ChWheeledVehicleIrrApp app(&vehicle, &powertrain, L"Articulated Vehicle Demo");
 
     app.SetSkyBox();
     app.AddTypicalLights(irr::core::vector3df(30.f, -30.f, 100.f), irr::core::vector3df(30.f, 50.f, 100.f), 250, 130);
@@ -169,7 +169,7 @@ int main(int argc, char* argv[]) {
     driver.SetBrakingDelta(render_step_size / braking_time);
 
 #else
-    Generic_FuncDriver driver;
+    Generic_FuncDriver driver(vehicle);
 #endif
 
 // ---------------
@@ -182,9 +182,9 @@ int main(int argc, char* argv[]) {
 #endif
 
     // Inter-module communication data
-    ChTireForces tire_forces(4);
-    ChTireForces tr_tire_forces(4);
-    ChWheelState wheel_states[4];
+    TireForces tire_forces(4);
+    TireForces tr_tire_forces(4);
+    WheelState wheel_states[4];
     double driveshaft_speed;
     double powertrain_torque;
     double throttle_input;

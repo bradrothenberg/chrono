@@ -22,22 +22,34 @@
 
 #include <string>
 
-#include "core/ChShared.h"
-#include "physics/ChSystem.h"
+#include "chrono/core/ChShared.h"
+#include "chrono/physics/ChSystem.h"
 
 #include "chrono_vehicle/ChApiVehicle.h"
+#include "chrono_vehicle/ChVehicle.h"
+
+/**
+    @addtogroup vehicle
+    @{
+        @defgroup vehicle_driver Driver models
+    @}
+*/
 
 namespace chrono {
+namespace vehicle {
 
-///
+/// @addtogroup vehicle_driver
+/// @{
+
 /// Base class for a vehicle driver system.
 /// A driver system must be able to report the current values of the inputs
 /// (throttle, steering, braking). A concrete driver class must set the member
 /// variables m_throttle, m_steering, and m_braking.
-///
 class CH_VEHICLE_API ChDriver : public ChShared {
   public:
-    ChDriver();
+    ChDriver(ChVehicle& vehicle  ///< associated vehicle
+             );
+
     virtual ~ChDriver() {}
 
     /// Get the driver throttle input (in the range [0,1])
@@ -71,14 +83,18 @@ class CH_VEHICLE_API ChDriver : public ChShared {
     void SetBraking(double val, double min_val = 0, double max_val = 1);
 
   protected:
-    double m_throttle;  ///< current value of throttle input
-    double m_steering;  ///< current value of steering input
-    double m_braking;   ///< current value of braking input
+    ChVehicle& m_vehicle;  ///< reference to associated vehicle
+    double m_throttle;     ///< current value of throttle input
+    double m_steering;     ///< current value of steering input
+    double m_braking;      ///< current value of braking input
 
   private:
-    std::string m_log_filename;  // name of output file for recording driver inputs
+    std::string m_log_filename;  ///< name of output file for recording driver inputs
 };
 
+/// @} vehicle_driver
+
+}  // end namespace vehicle
 }  // end namespace chrono
 
 #endif

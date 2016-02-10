@@ -34,7 +34,6 @@
 #include "chrono_vehicle/ChVehicleModelData.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
 
-#include "ModelDefs.h"
 #include "generic/Generic_Vehicle.h"
 #include "generic/Generic_SimplePowertrain.h"
 #include "generic/Generic_RigidTire.h"
@@ -43,8 +42,8 @@
 // If Irrlicht support is available...
 #ifdef CHRONO_IRRLICHT
 // ...include additional headers
-#include "chrono_irrlicht/ChIrrApp.h"
 #include "chrono_vehicle/driver/ChIrrGuiDriver.h"
+#include "chrono_vehicle/wheeled_vehicle/utils/ChWheeledVehicleIrrApp.h"
 
 // ...and specify whether the demo should actually use Irrlicht
 #define USE_IRRLICHT
@@ -54,6 +53,7 @@
 //#define DEBUG_LOG
 
 using namespace chrono;
+using namespace chrono::vehicle;
 
 // =============================================================================
 
@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
 
 #ifdef USE_IRRLICHT
 
-    ChVehicleIrrApp app(vehicle, powertrain, L"Generic Vehicle Demo");
+    ChWheeledVehicleIrrApp app(&vehicle, &powertrain, L"Generic Vehicle Demo");
 
     app.SetSkyBox();
     app.AddTypicalLights(irr::core::vector3df(30.f, -30.f, 100.f), irr::core::vector3df(30.f, 50.f, 100.f), 250, 130);
@@ -173,7 +173,7 @@ int main(int argc, char* argv[]) {
 
 #else
 
-    Generic_FuncDriver driver;
+    Generic_FuncDriver driver(vehicle);
 
 #endif
 
@@ -187,8 +187,8 @@ int main(int argc, char* argv[]) {
 #endif
 
     // Inter-module communication data
-    ChTireForces tire_forces(4);
-    ChWheelState wheel_states[4];
+    TireForces tire_forces(4);
+    WheelState wheel_states[4];
     double driveshaft_speed;
     double powertrain_torque;
     double throttle_input;

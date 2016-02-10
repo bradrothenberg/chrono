@@ -32,10 +32,9 @@
 // ------------------------------------------------
 ///////////////////////////////////////////////////
 
-#include "chrono_mkl/ChApiMkl.h"
 #include <mkl.h>
+#include "chrono_mkl/ChApiMkl.h"
 #include "chrono_mkl/ChCSR3Matrix.h"
-#include "core/ChSpmatrix.h"
 
 
 
@@ -119,6 +118,7 @@ namespace chrono
 
 		// Auxiliary functions
 		int* GetIparmAddress(){ return iparm; }
+		void SetIparmValue(int parm_num, int value){ IPARM(parm_num) = value; }; //< Sets the \c parm_num th element of \c iparm to \c value
 		void PrintIparmOutput() const;
 
 		// Advanced functions

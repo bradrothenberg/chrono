@@ -20,21 +20,19 @@
 #include "lcp/ChLcpConstraintTwoGeneric.h"
 
 
-namespace chrono
-{
+namespace chrono {
 
 class ChIndexedNodes; // forward ref
 
-namespace fea
-{
+namespace fea {
 
-
+/// @addtogroup fea_constraints
+/// @{
 
 /// Class for creating a constraint between two xyz FEA nodes (points).
 /// That is, the two nodes will be joined, as overlapping.
 /// Nodes are 3-DOF points that are used in point-based 
 /// primitives, such as ChMatterSPH or finite elements.
-
 class ChApiFea ChLinkPointPoint : public ChLinkBase {
 
 						// Chrono simulation of RTTI, needed for serialization
@@ -84,12 +82,14 @@ public:
 				/// Get the number of scalar variables affected by constraints in this link 
 	virtual int GetNumCoords() {return 3 + 3;}
 
-				/// Number of scalar costraints 
+				/// Number of scalar constraints 
 	virtual int GetDOC_c  () {return 3;}
 
 				/// To get reaction force, expressed in link coordinate system:
 	virtual ChVector<> Get_react_force() {return GetReactionOnNode();}
 
+    // Get constraint violations
+    ChMatrixNM<double, 3, 1> GetC();
 
 	 		//
 			// STATE FUNCTIONS
@@ -166,9 +166,7 @@ public:
 
 };
 
-
-
-
+/// @} fea_constraints
 
 } // END_OF_NAMESPACE____
 } // END_OF_NAMESPACE____

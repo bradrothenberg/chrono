@@ -25,6 +25,7 @@ ChLinkLinActuator::ChLinkLinActuator() {
     mot_rot = ChSharedPtr<ChFunction>(new ChFunction_Recorder());
 
     learn = FALSE;
+    learn_torque_rotation = TRUE;
     offset = 0.1;
 
     mot_tau = 1.0;
@@ -49,6 +50,7 @@ void ChLinkLinActuator::Copy(ChLinkLinActuator* source) {
 
     // copy custom data:
     learn = source->learn;
+    learn_torque_rotation = source->learn_torque_rotation;
     offset = source->offset;
 
     dist_funct = ChSharedPtr<ChFunction>(source->dist_funct->new_Duplicate());
@@ -68,10 +70,12 @@ ChLink* ChLinkLinActuator::new_Duplicate() {
 }
 
 void ChLinkLinActuator::Set_learn(int mset) {
-    if (mset)
+    if (mset) {
         SetDisabled(true);  // ..just to show it as a green wireframe...
-    else
+        this->Set_learn_torque_rotaton(false);
+    } else {
         SetDisabled(false);
+    }
 
     if (mset)
         ((ChLinkMaskLF*)mask)->Constr_X().SetMode(CONSTRAINT_FREE);
@@ -84,6 +88,16 @@ void ChLinkLinActuator::Set_learn(int mset) {
     if (dist_funct->Get_Type() != FUNCT_RECORDER)
         dist_funct = ChSharedPtr<ChFunction>(new ChFunction_Recorder);
 }
+
+void ChLinkLinActuator::Set_learn_torque_rotaton(int mset) {
+	learn_torque_rotation = mset;
+    if (mot_torque->Get_Type() != FUNCT_RECORDER)
+        mot_torque = ChSharedPtr<ChFunction>(new ChFunction_Recorder);
+
+    if (mot_rot->Get_Type() != FUNCT_RECORDER)
+        mot_rot = ChSharedPtr<ChFunction>(new ChFunction_Recorder);
+}
+
 
 void ChLinkLinActuator::UpdateTime(double mytime) {
     // First, inherit to parent class
@@ -173,52 +187,59 @@ void ChLinkLinActuator::UpdateTime(double mytime) {
     //  m_rotation = (deltaC.pos.x - this->offset) / mot_tau;
     //  m_torque =  (deltaC_dtdt.pos.x / mot_tau) * mot_inertia + (this->react_force.x * mot_tau) / mot_eta;
 
-    if (mot_torque->Get_Type() != FUNCT_RECORDER)
-        mot_torque = ChSharedPtr<ChFunction>(new ChFunction_Recorder);
+    if (learn_torque_rotation == TRUE) {
+		if (mot_torque->Get_Type() != FUNCT_RECORDER)
+			mot_torque = ChSharedPtr<ChFunction>(new ChFunction_Recorder);
 
-    if (mot_rot->Get_Type() != FUNCT_RECORDER)
-        mot_rot = ChSharedPtr<ChFunction>(new ChFunction_Recorder);
+		if (mot_rot->Get_Type() != FUNCT_RECORDER)
+			mot_rot = ChSharedPtr<ChFunction>(new ChFunction_Recorder);
 
-    mot_torque.StaticCastTo<ChFunction_Recorder>()->AddPoint(mytime, mot_retorque, 1);  // (x,y,w)  x=t
-    mot_rot.StaticCastTo<ChFunction_Recorder>()->AddPoint(mytime, mot_rerot, 1);        // (x,y,w)  x=t
+		mot_torque.StaticCastTo<ChFunction_Recorder>()->AddPoint(mytime, mot_retorque, 1);  // (x,y,w)  x=t
+		mot_rot.StaticCastTo<ChFunction_Recorder>()->AddPoint(mytime, mot_rerot, 1);        // (x,y,w)  x=t
+    }
 }
 
-void ChLinkLinActuator::StreamOUT(ChStreamOutBinary& mstream) {
-    // class version number
-    mstream.VersionWrite(1);
-    // serialize parent class too
-    ChLinkLock::StreamOUT(mstream);
 
-    // stream out all member data
-    mstream << learn;
-    mstream << offset;
-    mstream.AbstractWrite(dist_funct.get_ptr());
-    mstream << mot_tau;
-    mstream << mot_eta;
-    mstream << mot_inertia;
-    mstream.AbstractWrite(mot_rot.get_ptr());
-    mstream.AbstractWrite(mot_torque.get_ptr());
+void ChLinkLinActuator::ArchiveOUT(ChArchiveOut& marchive)
+{
+    // version number
+    marchive.VersionWrite(1);
+
+    // serialize parent class
+    ChLinkLock::ArchiveOUT(marchive);
+
+    // serialize all member data:
+    marchive << CHNVP(learn);
+    marchive << CHNVP(learn_torque_rotation);
+    marchive << CHNVP(offset);
+    marchive << CHNVP(dist_funct);
+    marchive << CHNVP(mot_tau);
+    marchive << CHNVP(mot_eta);
+    marchive << CHNVP(mot_inertia);
+    marchive << CHNVP(mot_rot);
+    marchive << CHNVP(mot_torque);
 }
 
-void ChLinkLinActuator::StreamIN(ChStreamInBinary& mstream) {
-    // class version number
-    int version = mstream.VersionRead();
-    // deserialize parent class too
-    ChLinkLock::StreamIN(mstream);
+/// Method to allow de serialization of transient data from archives.
+void ChLinkLinActuator::ArchiveIN(ChArchiveIn& marchive) 
+{
+    // version number
+    int version = marchive.VersionRead();
 
-    // stream in all member data
-    ChFunction* newfun;
-    mstream >> learn;
-    mstream >> offset;
-    mstream.AbstractReadCreate(&newfun);
-    dist_funct = ChSharedPtr<ChFunction>(newfun);
-    mstream >> mot_tau;
-    mstream >> mot_eta;
-    mstream >> mot_inertia;
-    mstream.AbstractReadCreate(&newfun);
-    mot_rot = ChSharedPtr<ChFunction>(newfun);
-    mstream.AbstractReadCreate(&newfun);
-    mot_torque = ChSharedPtr<ChFunction>(newfun);
+    // deserialize parent class
+    ChLinkLock::ArchiveIN(marchive);
+
+    // deserialize all member data:
+    marchive >> CHNVP(learn);
+    marchive >> CHNVP(learn_torque_rotation);
+    marchive >> CHNVP(offset);
+    marchive >> CHNVP(dist_funct);
+    marchive >> CHNVP(mot_tau);
+    marchive >> CHNVP(mot_eta);
+    marchive >> CHNVP(mot_inertia);
+    marchive >> CHNVP(mot_rot);
+    marchive >> CHNVP(mot_torque);
 }
+
 
 }  // END_OF_NAMESPACE____

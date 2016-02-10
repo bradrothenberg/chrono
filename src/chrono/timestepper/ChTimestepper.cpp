@@ -9,9 +9,20 @@
 // and at http://projectchrono.org/license-chrono.txt.
 //
 
+#include <cmath>
+
 #include "timestepper/ChTimestepper.h"
 
 using namespace chrono;
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Register into the object factory, to enable run-time
+// dynamic creation and persistence
+ChClassRegister<ChTimestepperEulerExpl> a_registration_ChTimestepperEulerExpl;
 
 /// Euler explicit timestepper
 /// This performs the typical  y_new = y+ dy/dt * dt
@@ -40,6 +51,15 @@ void ChTimestepperEulerExpl::Advance(const double dt  ///< timestep to advance
     GetIntegrable()->StateScatterDerivative(dYdt);  // -> system auxiliary data
     GetIntegrable()->StateScatterReactions(L);      // -> system auxiliary data
 }
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Register into the object factory, to enable run-time
+// dynamic creation and persistence
+ChClassRegister<ChTimestepperEulerExplIIorder> a_registration_ChTimestepperEulerExplIIorder;
 
 /// Euler explicit timestepper customized for II order.
 /// (It gives the same results of ChTimestepperEulerExpl,
@@ -79,6 +99,16 @@ void ChTimestepperEulerExplIIorder::Advance(const double dt  ///< timestep to ad
     mintegrable->StateScatterReactions(L);     // -> system auxiliary data
 }
 
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Register into the object factory, to enable run-time
+// dynamic creation and persistence
+ChClassRegister<ChTimestepperEulerSemiImplicit> a_registration_ChTimestepperEulerSemiImplicit;
+
 /// Euler semi-implicit timestepper
 /// This performs the typical
 ///    v_new = v + a * dt
@@ -112,6 +142,16 @@ void ChTimestepperEulerSemiImplicit::Advance(const double dt  ///< timestep to a
     mintegrable->StateScatterAcceleration(A);  // -> system auxiliary data
     mintegrable->StateScatterReactions(L);     // -> system auxiliary data
 }
+
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Register into the object factory, to enable run-time
+// dynamic creation and persistence
+ChClassRegister<ChTimestepperRungeKuttaExpl> a_registration_ChTimestepperRungeKuttaExpl;
 
 /// Performs a step of a 4th order explicit Runge-Kutta
 /// integration scheme.
@@ -155,6 +195,15 @@ void ChTimestepperRungeKuttaExpl::Advance(const double dt  ///< timestep to adva
     GetIntegrable()->StateScatterReactions(L);      // -> system auxiliary data
 }
 
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Register into the object factory, to enable run-time
+// dynamic creation and persistence
+ChClassRegister<ChTimestepperHeun> a_registration_ChTimestepperHeun;
+
 /// Performs a step of a Heun explicit integrator. It is like
 /// a 2nd Runge Kutta.
 
@@ -188,6 +237,15 @@ void ChTimestepperHeun::Advance(const double dt  ///< timestep to advance
     GetIntegrable()->StateScatterDerivative(dYdt);  // -> system auxiliary data
     GetIntegrable()->StateScatterReactions(L);      // -> system auxiliary data
 }
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Register into the object factory, to enable run-time
+// dynamic creation and persistence
+ChClassRegister<ChTimestepperLeapfrog> a_registration_ChTimestepperLeapfrog;
 
 /// Performs a step of a Leapfrog explicit integrator.
 /// It is a symplectic method, with 2nd order accuracy,
@@ -228,6 +286,15 @@ void ChTimestepperLeapfrog::Advance(const double dt  ///< timestep to advance
     mintegrable->StateScatterAcceleration(A);  // -> system auxiliary data
     mintegrable->StateScatterReactions(L);     // -> system auxiliary data
 }
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Register into the object factory, to enable run-time
+// dynamic creation and persistence
+ChClassRegister<ChTimestepperEulerImplicit> a_registration_ChTimestepperEulerImplicit;
 
 /// Performs a step of Euler implicit for II order systems
 
@@ -272,7 +339,7 @@ void ChTimestepperEulerImplicit::Advance(const double dt  ///< timestep to advan
         if (verbose)
             GetLog() << " Euler iteration=" << i << "  |R|=" << R.NormInf() << "  |Qc|=" << Qc.NormInf() << "\n";
 
-        if ((R.NormInf() < this->GetTolerance()) && (Qc.NormInf() < this->GetTolerance()))
+        if ((R.NormInf() < abstolS) && (Qc.NormInf() < abstolL))
             break;
 
         mintegrable->StateSolveCorrection(
@@ -302,6 +369,15 @@ void ChTimestepperEulerImplicit::Advance(const double dt  ///< timestep to advan
     mintegrable->StateScatter(X, V, T);     // state -> system
     mintegrable->StateScatterReactions(L);  // -> system auxiliary data
 }
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Register into the object factory, to enable run-time
+// dynamic creation and persistence
+ChClassRegister<ChTimestepperEulerImplicitLinearized> a_registration_ChTimestepperEulerImplicitLinearized;
 
 /// Performs a step of Euler implicit for II order systems
 /// using the Anitescu/Stewart/Trinkle single-iteration method,
@@ -364,6 +440,15 @@ void ChTimestepperEulerImplicitLinearized::Advance(const double dt  ///< timeste
     mintegrable->StateScatterReactions(L);  // -> system auxiliary data
 }
 
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Register into the object factory, to enable run-time
+// dynamic creation and persistence
+ChClassRegister<ChTimestepperEulerImplicitProjected> a_registration_ChTimestepperEulerImplicitProjected;
 
 /// Performs a step of Euler implicit for II order systems
 /// using a semi implicit Euler without constr.stabilization, followed by a projection,
@@ -449,6 +534,16 @@ void ChTimestepperEulerImplicitProjected::Advance(const double dt  ///< timestep
     mintegrable->StateScatter(X, V, T);     // state -> system
 }
 
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Register into the object factory, to enable run-time
+// dynamic creation and persistence
+ChClassRegister<ChTimestepperTrapezoidal> a_registration_ChTimestepperTrapezoidal;
+
 /// Performs a step of trapezoidal implicit for II order systems
 /// NOTE this is a modified version of the trapezoidal for DAE: the
 /// original derivation would lead to a scheme that produces oscillatory
@@ -504,7 +599,7 @@ void ChTimestepperTrapezoidal::Advance(const double dt  ///< timestep to advance
         if (verbose)
             GetLog() << " Trapezoidal iteration=" << i << "  |R|=" << R.NormTwo() << "  |Qc|=" << Qc.NormTwo() << "\n";
 
-        if ((R.NormInf() < this->GetTolerance()) && (Qc.NormInf() < this->GetTolerance()))
+        if ((R.NormInf() < abstolS) && (Qc.NormInf() < abstolL))
             break;
 
         mintegrable->StateSolveCorrection(
@@ -535,6 +630,15 @@ void ChTimestepperTrapezoidal::Advance(const double dt  ///< timestep to advance
     mintegrable->StateScatterReactions(L *=
                                        0.5);  // -> system auxiliary data   (*=0.5 cause we used the hack of l_old = 0)
 }
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Register into the object factory, to enable run-time
+// dynamic creation and persistence
+ChClassRegister<ChTimestepperTrapezoidalLinearized> a_registration_ChTimestepperTrapezoidalLinearized;
 
 /// Performs a step of trapezoidal implicit linearized for II order systems
 
@@ -607,6 +711,15 @@ void ChTimestepperTrapezoidalLinearized::Advance(const double dt  ///< timestep 
     mintegrable->StateScatterReactions(L *= 0.5);  // -> system auxiliary data (*=0.5 cause use l_old = 0)
 }
 
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Register into the object factory, to enable run-time
+// dynamic creation and persistence
+ChClassRegister<ChTimestepperTrapezoidalLinearized2> a_registration_ChTimestepperTrapezoidalLinearized2;
+
 /// Performs a step of trapezoidal implicit linearized for II order systems
 ///*** SIMPLIFIED VERSION -DOES NOT WORK - PREFER ChTimestepperTrapezoidalLinearized
 
@@ -669,19 +782,32 @@ void ChTimestepperTrapezoidalLinearized2::Advance(const double dt  ///< timestep
     mintegrable->StateScatterReactions(L);  // -> system auxiliary data
 }
 
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Register into the object factory, to enable run-time
+// dynamic creation and persistence
+ChClassRegister<ChTimestepperHHT> a_registration_ChTimestepperHHT;
+
 /// Performs a step of HHT (generalized alpha) implicit for II order systems
 /// See Negrut et al. 2007.
 
-void ChTimestepperHHT::Advance(const double dt  ///< timestep to advance
-                               ) {
-    // downcast
+void ChTimestepperHHT::Advance(const double dt) {
+    // Downcast
     ChIntegrableIIorder* mintegrable = (ChIntegrableIIorder*)this->integrable;
 
-    // setup main vectors
+    // Setup main vectors
     mintegrable->StateSetup(X, V, A);
 
-    // setup auxiliary vectors
-    Da.Reset(mintegrable->GetNcoords_a(), GetIntegrable());
+    // Setup auxiliary vectors
+    Da.Reset(mintegrable->GetNcoords_a(), mintegrable);
+    if (mode == POSITION) {
+        Xprev.Reset(mintegrable->GetNcoords_x(), mintegrable);
+        Dx.Reset(mintegrable->GetNcoords_v(), mintegrable);
+    }
     Dl.Reset(mintegrable->GetNconstr());
     Xnew.Reset(mintegrable->GetNcoords_x(), mintegrable);
     Vnew.Reset(mintegrable->GetNcoords_v(), mintegrable);
@@ -690,155 +816,288 @@ void ChTimestepperHHT::Advance(const double dt  ///< timestep to advance
     Rold.Reset(mintegrable->GetNcoords_v());
     Qc.Reset(mintegrable->GetNconstr());
     L.Reset(mintegrable->GetNconstr());
+    Lnew.Reset(mintegrable->GetNconstr());
 
+    // State at current time T
     mintegrable->StateGather(X, V, T);        // state <- system
     mintegrable->StateGatherAcceleration(A);  // <- system
     mintegrable->StateGatherReactions(L);     // <- system
 
-    // Set scaling factor
-    double scaling_factor = scaling ? dt * dt : 1;
+    // Advance solution to time T+dt, possibly taking multiple steps
+    double tfinal = T + dt;  // target final time
+    num_it = 0;              // total number of NR iterations 
 
-    // Extrapolate a prediction as a warm start
+    // If we had a streak of successful steps, consider a stepsize increase.
+    // Note that we never attempt a step larger than the specified dt value.
+    // If step size control is disabled, always use h = dt.
+    if (!step_control) {
+        h = dt;
+        num_successful_steps = 0;
+    } else if (num_successful_steps >= req_successful_steps) {
+        double new_h = ChMin(h * step_increase_factor, dt);
+        if (new_h > h + h_min) {
+            h = new_h;
+            num_successful_steps = 0;
+            if (verbose)
+                GetLog() << " +++HHT increase stepsize to " << h << "\n";
+        }
+    } else {
+        h = ChMin(h, dt);
+    }
+
+    while (T < tfinal) {
+        double scaling_factor = scaling ? beta * h * h : 1;
+        Prepare(mintegrable, scaling_factor);
+
+        // Newton-Raphson for state at T+h
+        bool converged;
+        int it;
+        for (it = 0; it < maxiters; it++) {
+            Increment(mintegrable, scaling_factor);
+            num_it++;
+            converged = CheckConvergence(scaling_factor);
+            if (converged)
+                break;
+        }
+
+        if (converged || !step_control) {
+            // NR converged (or step size control disabled):
+            // - if the number of iterations was low enough, increase the count of successive
+            //   successful steps (for possible step increase)
+            // - if needed, adjust stepsize to reach exactly tfinal
+            // - advance time and set the state
+
+            if (it < maxiters_success)
+                num_successful_steps++;
+            else
+                num_successful_steps = 0;
+
+            if (verbose) {
+                if (converged)
+                    GetLog() << " HHT NR converged (" << num_successful_steps << ").";
+                else
+                    GetLog() << " HHT NR terminated.";
+                GetLog() << "  T = " << T + h << "  h = " << h << "\n";
+            }
+
+            if (std::abs(T + h - tfinal) < 1e-6)
+                h = tfinal - T;
+
+            T += h;
+            X = Xnew;
+            V = Vnew;
+            A = Anew;
+            L = Lnew;
+
+        } else {
+            // NR did not converge.
+            // - reset the count of successive successful steps
+            // - decrease stepsize
+            // - bail out if stepsize reaches minimum allowable
+
+            num_successful_steps = 0;
+            h *= step_decrease_factor;
+            if (verbose)
+                GetLog() << " ---HHT reduce stepsize to " << h << "\n";
+
+            if (h < h_min) {
+                if (verbose)
+                    GetLog() << " HHT at minimum stepsize. Exiting...\n";
+                throw ChException("HHT: Reached minimum allowable step size.");
+            }
+        }
+
+        // Scatter state -> system
+        mintegrable->StateScatter(X, V, T);
+
+        // In case we go back in the loop
+        //// TODO: this is wasted work if we DO NOT go back
+        Rold.Reset();
+        Anew.Reset(mintegrable->GetNcoords_a(), mintegrable);
+    }
+
+    // Scatter auxiliary data (A and L) -> system
+    mintegrable->StateScatterAcceleration(A);
+    mintegrable->StateScatterReactions(L);
+}
+
+// Prepare attempting a step of size h (assuming a converged state at the current time t):
+// - Initialize residual vector with terms at current time
+// - Obtain a prediction at T+h for NR using extrapolation from solution at current time.
+// - For ACCELERATION mode, if not using step size control, start with zero acceleration
+//   guess (previous step not guaranteed to have converged)
+// - Set the error weight vectors (using solution at current time)
+void ChTimestepperHHT::Prepare(ChIntegrableIIorder* integrable, double scaling_factor) {
     switch (mode) {
         case ACCELERATION:
-            Vnew = V;              // + Anew*dt;
-            Xnew = X + Vnew * dt;  // + Anew * dt * dt;
-            mintegrable->LoadResidual_F(Rold, -(alpha / (1.0 + alpha)));       // -alpha/(1.0+alpha) * f_old
-            mintegrable->LoadResidual_CqL(Rold, L, -(alpha / (1.0 + alpha)));  // -alpha/(1.0+alpha) * Cq'*l_old
+            if (step_control)
+                Anew = A;
+            Vnew = V + Anew * h;
+            Xnew = X + Vnew * h + Anew * (h * h);
+            integrable->LoadResidual_F(Rold, -alpha / (1.0 + alpha));       // -alpha/(1.0+alpha) * f_old
+            integrable->LoadResidual_CqL(Rold, L, -alpha / (1.0 + alpha));  // -alpha/(1.0+alpha) * Cq'*l_old
+            CalcErrorWeights(A, reltol, abstolS, ewtS);
             break;
         case POSITION:
             Xnew = X;
-            Vnew = V * (-(gamma / beta - 1.0)) - A * dt * (gamma / (2.0 * beta) - 1.0);
-            Anew = V * (-1.0 / (beta * dt)) - A * (1.0 / (2.0 * beta) - 1.0);
-            mintegrable->LoadResidual_F(Rold, -(alpha / (1.0 + alpha)) * scaling_factor);
-            mintegrable->LoadResidual_CqL(Rold, L, -(alpha / (1.0 + alpha)) * scaling_factor);
+            Xprev = X;
+            Vnew = V * (-(gamma / beta - 1.0)) - A * (h * (gamma / (2.0 * beta) - 1.0));
+            Anew = V * (-1.0 / (beta * h)) - A * (1.0 / (2.0 * beta) - 1.0);
+            integrable->LoadResidual_F(Rold, -(alpha / (1.0 + alpha)) * scaling_factor);  // -alpha/(1.0+alpha) * f_old
+            integrable->LoadResidual_CqL(Rold, L, -(alpha / (1.0 + alpha)) * scaling_factor);  // -alpha/(1.0+alpha) * Cq'*l_old
+            CalcErrorWeights(X, reltol, abstolS, ewtS);
             break;
     }
 
-    // Use Newton Raphson iteration to solve HHT for a_new
-    // Note: l and l_new and Dl with opposite sign if compared to Negrut et al. 2007.
-    //
-    // [ M - dt*gamma*dF/dv - dt^2*beta*dF/dx    Cq' ] [ Da ] =
-    // [ Cq                                      0   ] [ Dl ]
-    //                [ -1/(1+alpha)*M*(a_new) + (f_new +Cq*l_new) - (alpha/(1+alpha))(f_old +Cq*l_old)]
-    //                [  1/(beta*dt^2)*C                                                               ]
-    for (num_it = 0; num_it < GetMaxiters(); ++num_it) {
-        mintegrable->StateScatter(Xnew, Vnew, T + dt);  // state -> system
+    Lnew = L;
 
-        R = Rold;
-        Qc.Reset();
-
-        switch (mode) {
-            case ACCELERATION:
-                mintegrable->LoadResidual_F(R, 1.0);                      //  f_new
-                mintegrable->LoadResidual_CqL(R, L, 1.0);                 //  Cq'*l_new
-                mintegrable->LoadResidual_Mv(R, Anew, -1 / (1 + alpha));  // -1/(1+alpha)*M*a_new
-                mintegrable->LoadConstraint_C(Qc, 1 / (beta * dt * dt), Qc_do_clamp, Qc_clamping);  //  1/(beta*dt^2)*C
-
-                mintegrable->StateSolveCorrection(
-                    Da, Dl, R, Qc,
-                    1 / (1 + alpha),  // factor for  M (was 1 in Negrut paper ?!)
-                    -dt * gamma,      // factor for  dF/dv
-                    -dt * dt * beta,  // factor for  dF/dx
-                    Xnew, Vnew, T + dt,
-                    false  // do not StateScatter update to Xnew Vnew T+dt before computing correction
-                    );
-
-                L += Dl;  // Note it is not -= Dl because we assume StateSolveCorrection flips sign of Dl
-
-                Anew += Da;
-                Xnew = X + V * dt + A * (dt * dt * (0.5 - beta)) + Anew * (dt * dt * beta);
-                Vnew = V + A * (dt * (1.0 - gamma)) + Anew * (dt * gamma);
-
-                break;
-
-            case POSITION:
-                mintegrable->LoadResidual_F(R, scaling_factor);                            //  f_new
-                mintegrable->LoadResidual_CqL(R, L, scaling_factor);                       //  Cq'*l_new
-                mintegrable->LoadResidual_Mv(R, Anew, -1 / (1 + alpha) * scaling_factor);  // -1/(1+alpha)*M*a_new
-                mintegrable->LoadConstraint_C(Qc, 1.0, Qc_do_clamp, Qc_clamping);          //  1/(beta*dt^2)*C
-
-                mintegrable->StateSolveCorrection(
-                    Da, Dl, R, Qc,
-                    scaling_factor / ((1 + alpha) * beta * dt * dt),  // factor for  M (was 1 in Negrut paper ?!)
-                    -scaling_factor / (gamma * dt),                   // factor for  dF/dv
-                    -scaling_factor,                                  // factor for  dF/dx
-                    Xnew, Vnew, T + dt,
-                    false  // do not StateScatter update to Xnew Vnew T+dt before computing correction
-                    );
-
-                L += Dl;  // Note it is not -= Dl because we assume StateSolveCorrection flips sign of Dl
-
-                Xnew = Xnew + Da;  // X + V * dt + A * (dt * dt * (0.5 - beta)) + Anew * (dt * dt * beta);
-                Vnew = V * (-(gamma / beta - 1.0)) - A * dt * (gamma / (2.0 * beta) - 1.0);
-                Vnew += (Xnew - X) * (gamma / (beta * dt));  // V + A * (dt * (1.0 - gamma)) + Anew * (dt * gamma);
-                Anew = -V * (1.0 / (beta * dt)) - A * (1.0 / (2.0 * beta) - 1.0);
-                Anew += (Xnew - X) * (1.0 / (beta * dt * dt));
-
-                break;
-        }
-
-        // Check stopping criteria.
-        bool converged = false;
-
-        switch (mode) {
-            case ACCELERATION: {
-                double R_nrm = R.NormTwo();
-                double Qc_nrm = Qc.NormTwo();
-                double Da_nrm = Da.NormTwo();
-                double Dl_nrm = Dl.NormTwo();
-
-                if (verbose) {
-                    GetLog() << " HHT iteration=" << num_it << "  |R|=" << R_nrm << "  |Qc|=" << Qc_nrm
-                             << "  tol=" << GetTolerance() << "\n";
-                    GetLog() << " HHT iteration=" << num_it << "  |DA|=" << Da_nrm << "  |Dl|=" << Dl_nrm
-                             << "  tol=" << GetTolerance() << "\n";
-                }
-
-                if ((R.NormTwo() < GetTolerance() && Qc.NormTwo() < GetTolerance()) ||
-                    (Da.NormTwo() < GetTolerance() && Dl.NormTwo() < GetTolerance()))
-                    converged = true;
-
-                break;
-            }
-            case POSITION: {
-                double tmp = (Xnew + Da).NormTwo();
-                if (tmp < 1e-8)
-                    tmp = 1;
-                double Err_Da = Da.NormTwo() / tmp;
-                tmp = (L + Dl).NormTwo();
-                if (tmp < 1e-8)
-                    tmp = 1;
-                double Err_Dl = Dl.NormTwo() / tmp;
-
-                if (verbose) {
-                    GetLog() << " HHT iteration=" << num_it << "  |Err_Da|=" << Err_Da << "  |Err_Dl|=" << Err_Dl
-                             << "  tol=" << GetTolerance() << "\n";
-                }
-
-                if (Err_Da < GetTolerance() && Err_Dl < GetTolerance())
-                    converged = true;
-
-                break;
-            }
-        }
-
-        // Stop iterations if converged.
-        if (converged) {
-            ++num_it;
-            break;
-        }
-    }
-
-    X = Xnew;
-    V = Vnew;
-    A = Anew;
-    T += dt;
-
-    mintegrable->StateScatter(X, V, T);        // state -> system
-    mintegrable->StateScatterAcceleration(A);  // -> system auxiliary data
-    mintegrable->StateScatterReactions(L);     // -> system auxiliary data
+    CalcErrorWeights(L, reltol, abstolL, ewtL);
 }
+
+// Calculate a new iterate of the new state at time T+h:
+// - Scatter the current estimate of the new state (the state at time T+h)
+// - Set up and solve linear system
+// - Calculate solution increment
+// - Update the estimate of the new state (the state at time T+h)
+//
+// This is one iteration of Newton-Raphson to solve for a_new
+//
+// [ M - dt*gamma*dF/dv - dt^2*beta*dF/dx    Cq' ] [ Da ] =
+// [ Cq                                      0   ] [ Dl ]
+//                [ -1/(1+alpha)*M*(a_new) + (f_new +Cq*l_new) - (alpha/(1+alpha))(f_old +Cq*l_old)]
+//                [  1/(beta*dt^2)*C                                                               ]
+//
+void ChTimestepperHHT::Increment(ChIntegrableIIorder* integrable, double scaling_factor) {
+    // Scatter the current estimate of state at time T+h
+    integrable->StateScatter(Xnew, Vnew, T + h);
+
+    // Initialize the two segments of the RHS
+    R = Rold;    // terms related to state at time T
+    Qc.Reset();  // zero
+
+    switch (mode) {
+        case ACCELERATION:
+            // Set up linear system
+            integrable->LoadResidual_F(R, 1.0);                                              //  f_new
+            integrable->LoadResidual_CqL(R, Lnew, 1.0);                                      //  Cq'*l_new
+            integrable->LoadResidual_Mv(R, Anew, -1 / (1 + alpha));                          // -1/(1+alpha)*M*a_new
+            integrable->LoadConstraint_C(Qc, 1 / (beta * h * h), Qc_do_clamp, Qc_clamping);  //  1/(beta*dt^2)*C
+
+            // Solve linear system
+            integrable->StateSolveCorrection(
+                Da, Dl, R, Qc,
+                1 / (1 + alpha),  // factor for  M (was 1 in Negrut paper ?!)
+                -h * gamma,       // factor for  dF/dv
+                -h * h * beta,    // factor for  dF/dx
+                Xnew, Vnew, T + h,
+                false  // do not StateScatter update to Xnew Vnew T+h before computing correction
+                );
+
+            // Update estimate of state at t+h
+            Lnew += Dl;  // not -= Dl because we assume StateSolveCorrection flips sign of Dl
+            Anew += Da;
+            Xnew = X + V * h + A * (h * h * (0.5 - beta)) + Anew * (h * h * beta);
+            Vnew = V + A * (h * (1.0 - gamma)) + Anew * (h * gamma);
+
+            break;
+
+        case POSITION:
+            // Set up linear system
+            integrable->LoadResidual_F(R, scaling_factor);                            //  f_new
+            integrable->LoadResidual_CqL(R, Lnew, scaling_factor);                    //  Cq'*l_new
+            integrable->LoadResidual_Mv(R, Anew, -1 / (1 + alpha) * scaling_factor);  // -1/(1+alpha)*M*a_new
+            integrable->LoadConstraint_C(Qc, 1.0, Qc_do_clamp, Qc_clamping);          //  1/(beta*dt^2)*C
+
+            // Solve linear system
+            integrable->StateSolveCorrection(
+                Da, Dl, R, Qc,
+                scaling_factor / ((1 + alpha) * beta * h * h),  // factor for  M
+                -scaling_factor * gamma / (beta * h),           // factor for  dF/dv
+                -scaling_factor,                                // factor for  dF/dx
+                Xnew, Vnew, T + h,
+                false  // do not StateScatter update to Xnew Vnew T+h before computing correction
+                );
+
+            // Update estimate of state at t+h
+            Lnew += Dl * (1.0 / scaling_factor);  // not -= Dl because we assume StateSolveCorrection flips sign of Dl
+            Dx += Da;
+            Xnew = (X + Dx);
+            Vnew = V * (-(gamma / beta - 1.0)) - A * (h * (gamma / (2.0 * beta) - 1.0));
+            Vnew += Dx * (gamma / (beta * h));
+            Anew = -V * (1.0 / (beta * h)) - A * (1.0 / (2.0 * beta) - 1.0);
+            Anew += Dx * (1.0 / (beta * h * h));
+
+            break;
+    }
+}
+
+// Convergence test
+bool ChTimestepperHHT::CheckConvergence(double scaling_factor) {
+    bool converged = false;
+
+    switch (mode) {
+        case ACCELERATION: {
+            // Declare convergence when either the residual is below the absolute tolerance or
+            // the WRMS update norm is less than 1 (relative + absolute tolerance test)
+            //    |R|_2 < atol
+            // or |D|_WRMS < 1
+            // Both states and Lagrange multipliers must converge.
+            double R_nrm = R.NormTwo();
+            double Qc_nrm = Qc.NormTwo();
+            double Da_nrm = Da.NormWRMS(ewtS);
+            double Dl_nrm = Dl.NormWRMS(ewtL);
+
+            if (verbose) {
+                GetLog() << " HHT iteration=" << num_it << "  |R|=" << R_nrm << "  |Qc|=" << Qc_nrm
+                         << "  |Da|=" << Da_nrm << "  |Dl|=" << Dl_nrm << "  N = " << R.GetLength()
+                         << "  M = " << Qc.GetLength() << "\n";
+            }
+
+            if ((R_nrm < abstolS && Qc_nrm < abstolL) || (Da_nrm < 1 && Dl_nrm < 1))
+                converged = true;
+
+            break;
+        }
+        case POSITION: {
+            // Declare convergence when the WRMS norm of the update is less than 1
+            // (relative + absolute tolerance test).
+            // Note that the scaling factor must be properly included in the update to
+            // the Lagrange multipliers.
+            double Dx_nrm = (Xnew - Xprev).NormWRMS(ewtS);
+            Xprev = Xnew;
+
+            double Dl_nrm = Dl.NormWRMS(ewtL);
+            Dl_nrm /= scaling_factor;
+
+            if (verbose) {
+                GetLog() << " HHT iteration=" << num_it << "  |Dx|=" << Dx_nrm << "  |Dl|=" << Dl_nrm << "\n";
+            }
+
+            if (Dx_nrm < 1 && Dl_nrm < 1)
+                converged = true;
+
+            break;
+        }
+    }
+
+    return converged;
+}
+
+// Calculate the error weight vector correspondiong to the specified solution vector x,
+// using the given relative and absolute tolerances.
+void ChTimestepperHHT::CalcErrorWeights(const ChVectorDynamic<>& x, double rtol, double atol, ChVectorDynamic<>& ewt) {
+    ewt.Reset(x.GetLength());
+    for (int i = 0; i < x.GetLength(); ++i) {
+        ewt.ElementN(i) = 1.0 / (rtol * std::abs(x.ElementN(i)) + atol);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+// Register into the object factory, to enable run-time
+// dynamic creation and persistence
+ChClassRegister<ChTimestepperNewmark> a_registration_ChTimestepperNewmark;
 
 /// Performs a step of Newmark constrained implicit for II order DAE systems
 /// See Negrut et al. 2007.
@@ -889,7 +1148,7 @@ void ChTimestepperNewmark::Advance(const double dt  ///< timestep to advance
         if (verbose)
             GetLog() << " Newmark iteration=" << i << "  |R|=" << R.NormTwo() << "  |Qc|=" << Qc.NormTwo() << "\n";
 
-        if ((R.NormInf() < this->GetTolerance()) && (Qc.NormInf() < this->GetTolerance()))
+        if ((R.NormInf() < abstolS) && (Qc.NormInf() < abstolL))
             break;
 
         mintegrable->StateSolveCorrection(

@@ -37,18 +37,18 @@
 #include "chrono_irrlicht/ChIrrApp.h"
 
 // Use the main namespace of Chrono, and other chrono namespaces
-
 using namespace chrono;
 using namespace chrono::particlefactory;
 using namespace chrono::geometry;
+using namespace chrono::irrlicht;
 
 // Use the main namespaces of Irrlicht
 using namespace irr;
-using namespace core;
-using namespace scene;
-using namespace video;
-using namespace io;
-using namespace gui;
+using namespace irr::core;
+using namespace irr::scene;
+using namespace irr::video;
+using namespace irr::io;
+using namespace irr::gui;
 
 //     A callback executed at each particle creation can be attached to the emitter.
 //     For example, we need that new particles will be bound to Irrlicht visualization:
@@ -68,7 +68,7 @@ class MyCreatorForAll : public ChCallbackPostCreation {
         // Other stuff, ex. disable gyroscopic forces for increased integrator stabilty
         mbody->SetNoGyroTorque(true);
     }
-    irr::ChIrrApp* airrlicht_application;
+    ChIrrApp* airrlicht_application;
 };
 
 int main(int argc, char* argv[]) {
@@ -221,7 +221,7 @@ int main(int argc, char* argv[]) {
         // Apply custom forcefield (brute force approach..)
         // A) reset 'user forces accumulators':
         for (unsigned int i = 0; i < mphysicalSystem.Get_bodylist()->size(); i++) {
-            ChBody* abody = (*mphysicalSystem.Get_bodylist())[i];
+            auto abody = (*mphysicalSystem.Get_bodylist())[i];
             abody->Empty_forces_accumulators();
         }
 
@@ -229,9 +229,9 @@ int main(int argc, char* argv[]) {
         // double G_constant = 6.674e-11; // gravitational constant
         double G_constant = 6.674e-3;  // gravitational constant - HACK to speed up simulation
         for (unsigned int i = 0; i < mphysicalSystem.Get_bodylist()->size(); i++) {
-            ChBody* abodyA = (*mphysicalSystem.Get_bodylist())[i];
+            auto abodyA = (*mphysicalSystem.Get_bodylist())[i];
             for (unsigned int j = i + 1; j < mphysicalSystem.Get_bodylist()->size(); j++) {
-                ChBody* abodyB = (*mphysicalSystem.Get_bodylist())[j];
+                auto abodyB = (*mphysicalSystem.Get_bodylist())[j];
                 ChVector<> D_attract = abodyB->GetPos() - abodyA->GetPos();
                 double r_attract = D_attract.Length();
                 double f_attract = G_constant * (abodyA->GetMass() * abodyB->GetMass()) / (pow(r_attract, 2));

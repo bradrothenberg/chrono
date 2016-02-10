@@ -30,11 +30,13 @@
 using namespace irr;
 
 namespace chrono {
+namespace vehicle {
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 ChIrrGuiDriver::ChIrrGuiDriver(ChVehicleIrrApp& app)
-    : m_app(app),
+    : ChDriver(*app.m_vehicle),
+      m_app(app),
       m_throttleDelta(1.0 / 50),
       m_steeringDelta(1.0 / 50),
       m_brakingDelta(1.0 / 50),
@@ -90,25 +92,21 @@ bool ChIrrGuiDriver::OnEvent(const SEvent& event) {
             case KEY_KEY_J:
                 if (!m_data_driver.IsNull()) {
                     m_mode = DATAFILE;
-                    m_time_shift = m_app.m_car.GetSystem()->GetChTime();
+                    m_time_shift = m_app.m_vehicle->GetSystem()->GetChTime();
                 }
                 return true;
 
             case KEY_KEY_Z:
                 if (m_mode == KEYBOARD)
-                    m_app.m_powertrain.SetDriveMode(ChPowertrain::FORWARD);
+                    m_app.m_powertrain->SetDriveMode(ChPowertrain::FORWARD);
                 return true;
             case KEY_KEY_X:
                 if (m_mode == KEYBOARD)
-                    m_app.m_powertrain.SetDriveMode(ChPowertrain::NEUTRAL);
+                    m_app.m_powertrain->SetDriveMode(ChPowertrain::NEUTRAL);
                 return true;
             case KEY_KEY_C:
                 if (m_mode == KEYBOARD)
-                    m_app.m_powertrain.SetDriveMode(ChPowertrain::REVERSE);
-                return true;
-
-            case KEY_KEY_V:
-                m_app.m_car.LogConstraintViolations();
+                    m_app.m_powertrain->SetDriveMode(ChPowertrain::REVERSE);
                 return true;
         }
     }
@@ -120,7 +118,7 @@ bool ChIrrGuiDriver::OnEvent(const SEvent& event) {
 // -----------------------------------------------------------------------------
 void ChIrrGuiDriver::SetInputDataFile(const std::string& filename) {
     // Embed a DataDriver.
-    m_data_driver = ChSharedPtr<ChDataDriver>(new ChDataDriver(filename, false));
+    m_data_driver = ChSharedPtr<ChDataDriver>(new ChDataDriver(m_vehicle, filename, false));
 }
 
 // -----------------------------------------------------------------------------
@@ -139,7 +137,7 @@ void ChIrrGuiDriver::SetInputMode(InputMode mode) {
         case DATAFILE:
             if (!m_data_driver.IsNull()) {
                 m_mode = DATAFILE;
-                m_time_shift = m_app.m_car.GetSystem()->GetChTime();
+                m_time_shift = m_app.m_vehicle->GetSystem()->GetChTime();
             }
             break;
     }
@@ -175,4 +173,5 @@ std::string ChIrrGuiDriver::GetInputModeAsString() const {
     return std::string("");
 }
 
+}  // end namespace vehicle
 }  // end namespace chrono

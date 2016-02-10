@@ -19,36 +19,46 @@
 #ifndef CH_TERRAIN_H
 #define CH_TERRAIN_H
 
-#include "core/ChShared.h"
-#include "core/ChVector.h"
+#include "chrono/core/ChShared.h"
+#include "chrono/core/ChVector.h"
 
 #include "chrono_vehicle/ChApiVehicle.h"
 
+/**
+    @addtogroup vehicle
+    @{
+        @defgroup vehicle_terrain Terrain models
+    @}
+*/
 
 namespace chrono {
+namespace vehicle {
 
-///
-/// Base class for a height-field terrain system.
-///
-class CH_VEHICLE_API ChTerrain : public ChShared
-{
-public:
+/// @addtogroup vehicle_terrain
+/// @{
 
-  ChTerrain() {}
-  virtual ~ChTerrain() {}
+/// Base class for a terrain system.
+class CH_VEHICLE_API ChTerrain : public ChShared {
+  public:
+    ChTerrain() {}
+    virtual ~ChTerrain() {}
 
-  virtual void Update(double time) {}
-  virtual void Advance(double step) {}
+    /// Update the state of the terrain system at the specified time.
+    virtual void Update(double time) {}
 
-  /// Get the terrain height at the specified (x,y) location.
-  virtual double GetHeight(double x, double y) const = 0;
+    /// Advance the state of the terrain system by the specified duration.
+    virtual void Advance(double step) {}
 
-  /// Get the terrain normal at the specified (x,y) location.
-  virtual ChVector<> GetNormal(double x, double y) const = 0;
+    /// Get the terrain height at the specified (x,y) location.
+    virtual double GetHeight(double x, double y) const = 0;
+
+    /// Get the terrain normal at the specified (x,y) location.
+    virtual ChVector<> GetNormal(double x, double y) const = 0;
 };
 
+/// @} vehicle_terrain
 
-} // end namespace chrono
-
+}  // end namespace vehicle
+}  // end namespace chrono
 
 #endif

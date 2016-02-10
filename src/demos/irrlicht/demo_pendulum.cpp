@@ -35,17 +35,17 @@
 
 #include "chrono_irrlicht/ChIrrApp.h"
 
-// Use the namespace of Chrono
+// Use the namespaces of Chrono
 using namespace chrono;
+using namespace chrono::irrlicht;
 
 // Use the main namespaces of Irrlicht
 using namespace irr;
-
-using namespace core;
-using namespace scene;
-using namespace video;
-using namespace io;
-using namespace gui;
+using namespace irr::core;
+using namespace irr::scene;
+using namespace irr::video;
+using namespace irr::io;
+using namespace irr::gui;
 
 // This function will be used to apply forces caused by
 // a rotating fan, to all objects in front of it (a simple
@@ -58,7 +58,7 @@ void apply_fan_force(ChSystem* msystem,       // contains all bodies
                      double adensity)         // density (heuristic)
 {
     for (unsigned int i = 0; i < msystem->Get_bodylist()->size(); i++) {
-        ChBody* abody = (*msystem->Get_bodylist())[i];
+        auto abody = (*msystem->Get_bodylist())[i];
 
         // Remember to reset 'user forces accumulators':
         abody->Empty_forces_accumulators();

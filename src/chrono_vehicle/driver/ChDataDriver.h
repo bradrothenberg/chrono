@@ -31,38 +31,59 @@
 #include "chrono_vehicle/ChDriver.h"
 
 namespace chrono {
+namespace vehicle {
 
-class CH_VEHICLE_API ChDataDriver : public ChDriver
-{
-public:
-  struct Entry {
-    Entry() {}
-    Entry(double time, double steering, double throttle, double braking)
-      : m_time(time), m_steering(steering), m_throttle(throttle), m_braking(braking)
-    {}
-    double m_time;
-    double m_steering;
-    double m_throttle;
-    double m_braking;
-  };
+/// @addtogroup vehicle_driver
+/// @{
 
-  ChDataDriver(const std::string& filename,
-               bool               sorted = true);
-  ChDataDriver(const std::vector<Entry>& data,
-               bool                      sorted = true);
-  ~ChDataDriver() {}
+/// Driver inputs from data file.
+/// A driver model based on user inputs provided as time series. If provided as a
+/// text file, each line in the file must contain 4 values:
+///   time steering throttle braking
+/// It is assumed that the time values are unique.
+/// If the time values are not sorted, this must be specified at construction.
+/// Driver inputs at intermediate times are obtained through linear interpolation.
+class CH_VEHICLE_API ChDataDriver : public ChDriver {
+  public:
+    /// Definition of driver inputs at a given time.
+    struct Entry {
+        Entry() {}
+        Entry(double time, double steering, double throttle, double braking)
+            : m_time(time), m_steering(steering), m_throttle(throttle), m_braking(braking) {}
+        double m_time;
+        double m_steering;
+        double m_throttle;
+        double m_braking;
+    };
 
-  virtual void Update(double time);
+    /// Construct using data from the specified file.
+    ChDataDriver(ChVehicle& vehicle,           ///< associated vehicle
+                 const std::string& filename,  ///< name of data file
+                 bool sorted = true            ///< indicate whether entries are sorted by time stamps
+                 );
 
-private:
+    /// Construct using data from the specified data entries.
+    ChDataDriver(ChVehicle& vehicle,              ///< associated vehicle
+                 const std::vector<Entry>& data,  ///< vector of data entries
+                 bool sorted = true               ///< indicate whether entries are sorted by time stamps
+                 );
 
-  static bool compare(const Entry& a, const Entry& b) { return a.m_time < b.m_time; }
+    ~ChDataDriver() {}
 
-  std::vector<Entry> m_data;
+    /// Update the driver system at the specified time.
+    /// The driver inputs are obtained through linear interpolation between the
+    /// provided data points.
+    virtual void Update(double time) override;
+
+  private:
+    static bool compare(const Entry& a, const Entry& b) { return a.m_time < b.m_time; }
+
+    std::vector<Entry> m_data;
 };
 
+/// @} vehicle_driver
 
-} // end namespace hmmwv9
-
+}  // end namespace vehicle
+}  // end namespace chrono
 
 #endif

@@ -133,6 +133,15 @@ void ChLinkDirFrame::Update(double mytime, bool update_assets)
   // ...
 }
 
+ChMatrixNM<double, 2, 1> ChLinkDirFrame::GetC() {
+    ChMatrix33<> Arw = csys_direction.rot >> body->coord.rot;
+    ChVector<> res = Arw.MatrT_x_Vect(mnode->GetD());
+    ChMatrixNM<double, 2, 1> C;
+    C(0, 0) = res.y;
+    C(1, 0) = res.z;
+    return C;
+}
+
 
 //// STATE BOOKKEEPING FUNCTIONS
 
@@ -179,8 +188,8 @@ void ChLinkDirFrame::IntLoadConstraint_C(
 	ChVector<> cres = res * c;
 
 	if (do_clamp) {
-		cres.x = ChMin(ChMax(cres.y, -recovery_clamp), recovery_clamp);
-		cres.y = ChMin(ChMax(cres.z, -recovery_clamp), recovery_clamp);
+		cres.y = ChMin(ChMax(cres.y, -recovery_clamp), recovery_clamp);
+		cres.z = ChMin(ChMax(cres.z, -recovery_clamp), recovery_clamp);
 	}
 	Qc(off_L+0) += cres.y;
 	Qc(off_L+1) += cres.z;
@@ -326,6 +335,7 @@ void  ChLinkDirFrame::ConstraintsLiFetchSuggestedPositionSolution()
 
 void ChLinkDirFrame::StreamOUT(ChStreamOutBinary& mstream)
 {
+    /*
 			// class version number
 	mstream.VersionWrite(1);
 
@@ -334,12 +344,14 @@ void ChLinkDirFrame::StreamOUT(ChStreamOutBinary& mstream)
 
 		// stream out all member data
 	//mstream << this->node_index;
-	mstream << this->direction;
-	mstream << this->react;
+	mstream < this->direction;
+	mstream < this->react;
+    */
 }
 
 void ChLinkDirFrame::StreamIN(ChStreamInBinary& mstream)
 {
+    /*
 		// class version number
 	int version = mstream.VersionRead();
 
@@ -350,6 +362,7 @@ void ChLinkDirFrame::StreamIN(ChStreamInBinary& mstream)
 	//mstream >> this->node_index;
 	mstream >> this->direction;
 	mstream >> this->react;
+    */
 }
 
 

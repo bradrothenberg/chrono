@@ -39,8 +39,11 @@
 #include "chrono_vehicle/ChVehicle.h"
 
 namespace chrono {
+namespace vehicle {
 
-// -----------------------------------------------------------------------------
+/// @addtogroup vehicle_utils
+/// @{
+
 /// Base class for all steering path-following PID controllers.
 /// The base class implements the basic functionality to control the error
 /// between the location of a sentinel point (a point at a look-ahead distance
@@ -64,7 +67,6 @@ namespace chrono {
 /// suspended (stopped) as many times as desired.  Data collected so far can be
 /// written to a file.  The tab-separated output ASCII file contains on each line
 /// the time, location of the target point, and location of the sentinel point.
-///
 class CH_VEHICLE_API ChSteeringController {
   public:
     /// Construct a steering controller with default parameters.
@@ -150,12 +152,10 @@ class CH_VEHICLE_API ChSteeringController {
     bool m_collect;            ///< flag indicating whether or not data is being collected
 };
 
-// -----------------------------------------------------------------------------
 /// Concrete path-following steering PID controller.
 /// The path to be followed is specified as a ChBezierCurve object and the
 /// target point is defined to be the point on that path that is closest to the
 /// current location of the sentinel point.
-///
 class CH_VEHICLE_API ChPathSteeringController : public ChSteeringController {
   public:
     /// Construct a steering controller to track the specified path.
@@ -189,6 +189,9 @@ class CH_VEHICLE_API ChPathSteeringController : public ChSteeringController {
     ChBezierCurveTracker* m_tracker;  ///< path tracker
 };
 
+/// @} vehicle_utils
+
+}  // end namespace vehicle
 }  // end namespace chrono
 
 #endif
