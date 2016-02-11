@@ -3,11 +3,11 @@
 
 #include "ChApiMumps.h"
 #include "chrono/core/ChMatrix.h"
-#include "chrono/core/ChSpmatrix.h"
+#include "chrono/core/ChSparseMatrix.h"
 #include <vector>
 
 namespace chrono{
-	class ChApiMumps ChAssembledMatrix : public ChSparseMatrixBase
+	class ChApiMumps ChAssembledMatrix : public ChSparseMatrix
 	{
 
 	private:
@@ -35,7 +35,7 @@ namespace chrono{
 
 
 		void SetElement(int insrow, int inscol, double insval, bool overwrite = true) override;
-		double GetElement(int row, int col);
+		double GetElement(int row, int col) const;
 
 		virtual void PasteMatrix(ChMatrix<>* matra, int insrow, int inscol, bool overwrite = true, bool transp = false) override;
 		virtual void PasteMatrixFloat(ChMatrix<float>* matra, int insrow, int inscol, bool overwrite = true, bool transp = false) override;

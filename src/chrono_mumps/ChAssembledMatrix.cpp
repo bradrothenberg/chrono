@@ -137,7 +137,7 @@ namespace chrono
 
 	}
 
-	double ChAssembledMatrix::GetElement(int row, int col)
+	double ChAssembledMatrix::GetElement(int row, int col) const
 	{
 		if (oneIndexed_format)
 		{

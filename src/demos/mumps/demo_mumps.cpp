@@ -1,5 +1,6 @@
 
-# include <chrono_mumps/ChMumpsEngine.h>
+#include <chrono_mumps/ChMumpsEngine.h>
+#include <chrono/core/ChMatrixDynamic.h>
 
 using namespace chrono;
 
@@ -31,5 +32,5 @@ int main()
 
  
  	getchar();
-	return 0.0;
+	return 0;
  }
