@@ -21,6 +21,8 @@
 #include "chrono_fea/ChFaceTetra_4.h"
 #include "chrono_fea/ChContactSurfaceNodeCloud.h"
 #include "chrono_fea/ChContactSurfaceMesh.h"
+
+#include "physics/ChTensors.h"
 #include "chrono/assets/ChTriangleMeshShape.h"
 #include "chrono/assets/ChGlyphs.h"
 
@@ -641,52 +643,82 @@ void ChVisualizationFEAmesh::Update(ChPhysicsItem* updater, const ChCoordsys<>& 
                 mybeam->GetStateBlock(displ);  // for field of corotated element, u_displ will be always 0 at ends
 
                 for (int in = 0; in < beam_resolution; ++in) {
-                    double eta = -1.0 + (2.0 * in / (beam_resolution - 1));
+<<<<<<< HEAD
+				    double eta = -1.0+(2.0*in/(beam_resolution-1));
+				
+				    ChVector<> P;
+				    ChQuaternion<> msectionrot;
+                        mybeam->EvaluateSectionFrame(eta, displ, P,
+                                                     msectionrot);  // compute abs. pos and rot of section plane
 
-                    ChVector<> P;
-                    ChQuaternion<> msectionrot;
-                    mybeam->EvaluateSectionFrame(eta, displ, P,
-                                                 msectionrot);  // compute abs. pos and rot of section plane
+				    ChVector<> vresult;
+				    ChVector<> vresultB;
+					ChVoightTensor<double> stressTensor;
+					ChMatrixNM<double, 6, 1> stress;
 
-                    ChVector<> vresult;
-                    ChVector<> vresultB;
-                    double sresult = 0;
-                    switch (this->fem_data_type) {
-                        case E_PLOT_ELEM_BEAM_MX:
-                            mybeam->EvaluateSectionForceTorque(eta, displ, vresult, vresultB);
-                            sresult = vresultB.x;
-                            break;
-                        case E_PLOT_ELEM_BEAM_MY:
-                            mybeam->EvaluateSectionForceTorque(eta, displ, vresult, vresultB);
-                            sresult = vresultB.y;
-                            break;
-                        case E_PLOT_ELEM_BEAM_MZ:
-                            mybeam->EvaluateSectionForceTorque(eta, displ, vresult, vresultB);
-                            sresult = vresultB.z;
-                            break;
-                        case E_PLOT_ELEM_BEAM_TX:
-                            mybeam->EvaluateSectionForceTorque(eta, displ, vresult, vresultB);
-                            sresult = vresult.x;
-                            break;
-                        case E_PLOT_ELEM_BEAM_TY:
-                            mybeam->EvaluateSectionForceTorque(eta, displ, vresult, vresultB);
-                            sresult = vresult.y;
-                            break;
-                        case E_PLOT_ELEM_BEAM_TZ:
-                            mybeam->EvaluateSectionForceTorque(eta, displ, vresult, vresultB);
-                            sresult = vresult.z;
-                            break;
-                        case E_PLOT_ANCF_BEAM_AX:
-                            mybeam->EvaluateSectionStrain(eta, displ, vresult);
-                            sresult = vresult.x;
-                            break;
-                        case E_PLOT_ANCF_BEAM_BD:
-                            mybeam->EvaluateSectionStrain(eta, displ, vresult);
-                            sresult = vresult.y;
-                            break;
-                    }
-                    ChVector<float> mcol = ComputeFalseColor(sresult);
+					ChVector<> u_displ;
+					ChVector<> u_rotaz;
 
+					mybeam->EvaluateSectionDisplacement(eta, displ, u_displ, u_rotaz);
+					
+				    double sresult = 0;
+                        switch (this->fem_data_type) {
+						case E_PLOT_NODE_DISP_NORM:
+							sresult = u_displ.Length();
+						case E_PLOT_NODE_DISP_X:
+							sresult = u_displ.x;
+						case E_PLOT_NODE_DISP_Y:
+							sresult = u_displ.y;
+						case E_PLOT_NODE_DISP_Z:
+							sresult = u_displ.z;
+					    case E_PLOT_ELEM_BEAM_MX:
+						    mybeam->EvaluateSectionForceTorque(eta, displ, vresult, vresultB);
+						    sresult = vresultB.x; 
+						    break;
+					    case E_PLOT_ELEM_BEAM_MY:
+						    mybeam->EvaluateSectionForceTorque(eta, displ, vresult, vresultB);
+						    sresult = vresultB.y; 
+						    break;
+					    case E_PLOT_ELEM_BEAM_MZ:
+						    mybeam->EvaluateSectionForceTorque(eta, displ, vresult, vresultB);
+						    sresult = vresultB.z; 
+						    break;
+					    case E_PLOT_ELEM_BEAM_TX:
+						    mybeam->EvaluateSectionForceTorque(eta, displ, vresult, vresultB);
+						    sresult = vresult.x; 
+						    break;
+					    case E_PLOT_ELEM_BEAM_TY:
+						    mybeam->EvaluateSectionForceTorque(eta, displ, vresult, vresultB);
+						    sresult = vresult.y; 
+						    break;
+					    case E_PLOT_ELEM_BEAM_TZ:
+						    mybeam->EvaluateSectionForceTorque(eta, displ, vresult, vresultB);
+						    sresult = vresult.z; 
+						    break;
+						case E_PLOT_ELEM_BEAM_VON_MISES:
+							mybeam.DynamicCastTo<ChElementBeamEuler>()->EvaluateSectionStress(eta, displ, stress);
+
+							stressTensor(0) = stress(0);
+							stressTensor(1) = stress(1);
+							stressTensor(2) = stress(2);
+
+							stressTensor(3) = stress(3);
+							stressTensor(4) = stress(4);
+							stressTensor(5) = stress(5);
+
+							sresult = stressTensor.GetEquivalentVonMises();
+							break;
+                            case E_PLOT_ANCF_BEAM_AX:
+                                mybeam->EvaluateSectionStrain(eta, displ, vresult);
+                                sresult = vresult.x;
+                                break;
+                            case E_PLOT_ANCF_BEAM_BD:
+                                mybeam->EvaluateSectionStrain(eta, displ, vresult);
+                                sresult = vresult.y;
+                                break;
+				    }
+				    ChVector<float> mcol = ComputeFalseColor(sresult);
+                   
                     if (m_circular) {
                         // prepare a circular section
                         std::vector<ChVector<>> msection_pts(beam_resolution_section);

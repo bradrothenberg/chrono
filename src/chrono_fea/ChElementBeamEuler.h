@@ -905,6 +905,60 @@ class ChApiFea ChElementBeamEuler : public ChElementBeam,
         rot = this->q_element_abs_rot % msectionrot;
     }
 
+	//evaluate stress along the beam
+	void EvaluateSectionStress(const double eta, 
+								const ChMatrix<>& displ, 
+								ChMatrixNM<double, 6, 1>& stress)const {
+
+		assert(!section.IsNull());
+
+		double Jpolar = section->J;
+
+		// ChMatrixNM<double, 1, 12> N;
+
+		// this->ShapeFunctions(N, eta);  // Evaluate compressed shape functions
+
+		// shape function derivatives are computed here on-the-fly
+		double dN_xa = -(1. / length);
+		double dN_xb = (1. / length);
+		double ddN_ua = (6. / (length * length)) * (eta);
+		double ddN_ub = -(6. / (length * length)) * (eta);
+		double ddN_ra = -(1. / length) + ((3.0 / length) * eta);
+		double ddN_rb = (1. / length) + ((3.0 / length) * eta);
+		double dddN_ua = (12. / (length * length * length));
+		double dddN_ub = -(12. / (length * length * length));
+		double dddN_ra = (6.0 / (length * length));
+		double dddN_rb = (6.0 / (length * length));
+
+		// generalized strains/curvatures;
+		ChMatrixNM<double, 6, 1> sect_ek;
+
+		// e_x
+		sect_ek(0) = (dN_xa * displ(0) + dN_xb * displ(6));  // x_a   x_b
+															 // e_y
+		sect_ek(1) = (dddN_ua * displ(1) + dddN_ub * displ(7) +   // y_a   y_b
+			dddN_ra * displ(5) + dddN_rb * displ(11));  // Rz_a  Rz_b
+														// e_z
+		sect_ek(2) = (-dddN_ua * displ(2) - dddN_ub * displ(8) +  // z_a   z_b   note - sign
+			dddN_ra * displ(4) + dddN_rb * displ(10));  // Ry_a  Ry_b
+
+														// k_x
+		sect_ek(3) = (dN_xa * displ(3) + dN_xb * displ(9));  // Rx_a  Rx_b
+															 // k_y
+		sect_ek(4) = (-ddN_ua * displ(2) - ddN_ub * displ(8) +  // z_a   z_b   note - sign
+			ddN_ra * displ(4) + ddN_rb * displ(10));  // Ry_a  Ry_b
+													  // k_z
+		sect_ek(5) = (ddN_ua * displ(1) + ddN_ub * displ(7) +   // y_a   y_b
+			ddN_ra * displ(5) + ddN_rb * displ(11));  // Rz_a  Rz_b
+
+		auto ekk = sect_ek(0) + sect_ek(1) + sect_ek(2);
+
+		for (auto i = 0; i < 6; ++i) {
+			stress(i) = this->section->G * ekk + 2.0 * this->section->E * sect_ek(i);
+		}
+	}
+
+
     /// Gets the force (traction x, shear y, shear z) and the
     /// torque (torsion on x, bending on y, on bending on z) at a section along
     /// the beam line, at abscyssa 'eta'.
@@ -955,6 +1009,7 @@ class ChApiFea ChElementBeamEuler : public ChElementBeam,
         // k_z
         sect_ek(5) = (ddN_ua * displ(1) + ddN_ub * displ(7) +   // y_a   y_b
                       ddN_ra * displ(5) + ddN_rb * displ(11));  // Rz_a  Rz_b
+
 
         if (false)  // section->alpha ==0 && section->Cy ==0 && section->Cz==0 && section->Sy==0 && section->Sz==0)
         {
