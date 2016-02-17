@@ -910,7 +910,7 @@ class ChApiFea ChElementBeamEuler : public ChElementBeam,
 								const ChMatrix<>& displ, 
 								ChMatrixNM<double, 6, 1>& stress)const {
 
-		assert(!section.IsNull());
+		assert(section!=nullptr);
 
 		double Jpolar = section->J;
 

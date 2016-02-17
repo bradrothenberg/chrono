@@ -643,7 +643,6 @@ void ChVisualizationFEAmesh::Update(ChPhysicsItem* updater, const ChCoordsys<>& 
                 mybeam->GetStateBlock(displ);  // for field of corotated element, u_displ will be always 0 at ends
 
                 for (int in = 0; in < beam_resolution; ++in) {
-<<<<<<< HEAD
 				    double eta = -1.0+(2.0*in/(beam_resolution-1));
 				
 				    ChVector<> P;
@@ -696,7 +695,7 @@ void ChVisualizationFEAmesh::Update(ChPhysicsItem* updater, const ChCoordsys<>& 
 						    sresult = vresult.z; 
 						    break;
 						case E_PLOT_ELEM_BEAM_VON_MISES:
-							mybeam.DynamicCastTo<ChElementBeamEuler>()->EvaluateSectionStress(eta, displ, stress);
+							dynamic_cast<ChElementBeamEuler*>(mybeam.get())->EvaluateSectionStress(eta, displ, stress);
 
 							stressTensor(0) = stress(0);
 							stressTensor(1) = stress(1);
