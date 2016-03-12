@@ -28,7 +28,8 @@ namespace hmmwv {
 
 // -----------------------------------------------------------------------------
 HMMWV::HMMWV()
-    : m_vehicle(NULL),
+    : m_system(NULL),
+      m_vehicle(NULL),
       m_powertrain(NULL),
       m_tireFL(NULL),
       m_tireFR(NULL),
@@ -45,6 +46,25 @@ HMMWV::HMMWV()
       m_wheelVis(PRIMITIVES),
       m_initPos(ChCoordsys<>(ChVector<>(0, 0, 1), QUNIT)) {
 }
+
+HMMWV::HMMWV(ChSystem* system)
+    : m_system(system),
+      m_vehicle(NULL),
+      m_powertrain(NULL),
+      m_tireFL(NULL),
+      m_tireFR(NULL),
+      m_tireRL(NULL),
+      m_tireRR(NULL),
+      m_contactMethod(ChMaterialSurfaceBase::DVI),
+      m_fixed(false),
+      m_driveType(AWD),
+      m_powertrainType(SHAFTS),
+      m_tireType(RIGID),
+      m_tire_step_size(-1),
+      m_pacejkaParamFile(""),
+      m_chassisVis(PRIMITIVES),
+      m_wheelVis(PRIMITIVES),
+      m_initPos(ChCoordsys<>(ChVector<>(0, 0, 1), QUNIT)) {}
 
 HMMWV::~HMMWV() {
     delete m_vehicle;
@@ -188,11 +208,11 @@ void HMMWV::Initialize() {
 }
 
 // -----------------------------------------------------------------------------
-void HMMWV::Update(double time,
-                   double steering_input,
-                   double braking_input,
-                   double throttle_input,
-                   const ChTerrain& terrain) {
+void HMMWV::Synchronize(double time,
+                        double steering_input,
+                        double braking_input,
+                        double throttle_input,
+                        const ChTerrain& terrain) {
     TireForces tire_forces(4);
     WheelState wheel_states[4];
 
@@ -210,14 +230,14 @@ void HMMWV::Update(double time,
 
     double driveshaft_speed = m_vehicle->GetDriveshaftSpeed();
 
-    m_tireFL->Update(time, wheel_states[0], terrain);
-    m_tireFR->Update(time, wheel_states[1], terrain);
-    m_tireRL->Update(time, wheel_states[2], terrain);
-    m_tireRR->Update(time, wheel_states[3], terrain);
+    m_tireFL->Synchronize(time, wheel_states[0], terrain);
+    m_tireFR->Synchronize(time, wheel_states[1], terrain);
+    m_tireRL->Synchronize(time, wheel_states[2], terrain);
+    m_tireRR->Synchronize(time, wheel_states[3], terrain);
 
-    m_powertrain->Update(time, throttle_input, driveshaft_speed);
+    m_powertrain->Synchronize(time, throttle_input, driveshaft_speed);
 
-    m_vehicle->Update(time, steering_input, braking_input, powertrain_torque, tire_forces);
+    m_vehicle->Synchronize(time, steering_input, braking_input, powertrain_torque, tire_forces);
 }
 
 // -----------------------------------------------------------------------------
